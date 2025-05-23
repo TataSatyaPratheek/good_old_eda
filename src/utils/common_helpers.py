@@ -1,5 +1,6 @@
 """
 Common Helper Utilities for SEO Competitive Intelligence
+
 Frequently used utility functions, string helpers, date utilities, and caching mechanisms
 """
 
@@ -17,15 +18,17 @@ import json
 import threading
 from collections import defaultdict, OrderedDict
 import gc
+import pandas as pd
+import asyncio
+import functools
 
 class StringHelper:
     """
     Advanced string manipulation utilities for SEO competitive intelligence.
-    
     Provides comprehensive string processing capabilities optimized
     for SEO data cleaning and analysis.
     """
-    
+
     @staticmethod
     def clean_keyword(keyword: str) -> str:
         """
@@ -54,7 +57,6 @@ class StringHelper:
             cleaned = re.sub(r'\s+', ' ', cleaned).strip()
             
             return cleaned.lower()
-            
         except Exception:
             return ""
 
@@ -88,7 +90,6 @@ class StringHelper:
                 return domain
             
             return None
-            
         except Exception:
             return None
 
@@ -127,7 +128,6 @@ class StringHelper:
             
             for feature in features:
                 feature_clean = feature.strip().lower()
-                
                 # Map common variations to standard names
                 for pattern, standard_name in feature_mappings.items():
                     if pattern in feature_clean:
@@ -140,7 +140,6 @@ class StringHelper:
                         normalized_features.append(feature_clean.replace(' ', '_'))
             
             return sorted(normalized_features)
-            
         except Exception:
             return []
 
@@ -185,7 +184,6 @@ class StringHelper:
             combined_similarity = (jaccard_similarity * 0.7) + (char_similarity * 0.3)
             
             return combined_similarity
-            
         except Exception:
             return 0.0
 
@@ -220,7 +218,6 @@ class StringHelper:
             similarity = 1 - (distance / max_length) if max_length > 0 else 0
             
             return similarity
-            
         except Exception:
             return 0.0
 
@@ -252,7 +249,6 @@ class StringHelper:
                     non_branded.append(keyword)
             
             return branded, non_branded
-            
         except Exception:
             return [], keywords
 
@@ -260,11 +256,10 @@ class StringHelper:
 class DateHelper:
     """
     Advanced date and time utilities for SEO competitive intelligence.
-    
     Provides comprehensive date handling capabilities including
     timezone management, date parsing, and business date calculations.
     """
-    
+
     @staticmethod
     def parse_flexible_date(date_input: Union[str, datetime, int]) -> Optional[datetime]:
         """
@@ -317,7 +312,6 @@ class DateHelper:
                 pass
             
             return None
-            
         except Exception:
             return None
 
@@ -362,7 +356,6 @@ class DateHelper:
                 current_date += delta
             
             return dates
-            
         except Exception:
             return []
 
@@ -398,7 +391,6 @@ class DateHelper:
                 current_date += timedelta(days=1)
             
             return business_days
-            
         except Exception:
             return 0
 
@@ -439,7 +431,6 @@ class DateHelper:
                 return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
             else:
                 return "Just now"
-                
         except Exception:
             return "Unknown"
 
@@ -468,7 +459,6 @@ class DateHelper:
             week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
             
             return week_start, week_end
-            
         except Exception:
             return None, None
 
@@ -476,11 +466,10 @@ class DateHelper:
 class CacheManager:
     """
     Advanced caching utilities for SEO competitive intelligence.
-    
     Provides flexible caching mechanisms with TTL support,
     memory management, and cache statistics.
     """
-    
+
     def __init__(self, max_size: int = 1000, default_ttl: int = 3600):
         self.max_size = max_size
         self.default_ttl = default_ttl
@@ -520,7 +509,6 @@ class CacheManager:
                 
                 self.miss_count += 1
                 return default
-                
         except Exception:
             self.miss_count += 1
             return default
@@ -544,11 +532,11 @@ class CacheManager:
                 # Remove expired entries if at max size
                 if len(self.cache) >= self.max_size:
                     self._cleanup_expired()
-                    
-                    # If still at max size, remove oldest
-                    if len(self.cache) >= self.max_size:
-                        oldest_key = next(iter(self.cache))
-                        self._remove_key(oldest_key)
+                
+                # If still at max size, remove oldest
+                if len(self.cache) >= self.max_size:
+                    oldest_key = next(iter(self.cache))
+                    self._remove_key(oldest_key)
                 
                 # Add/update cache entry
                 self.cache[key] = value
@@ -559,7 +547,6 @@ class CacheManager:
                 self.cache.move_to_end(key)
                 
                 return True
-                
         except Exception:
             return False
 
@@ -579,7 +566,6 @@ class CacheManager:
                     self._remove_key(key)
                     return True
                 return False
-                
         except Exception:
             return False
 
@@ -598,7 +584,6 @@ class CacheManager:
                 self.hit_count = 0
                 self.miss_count = 0
                 return True
-                
         except Exception:
             return False
 
@@ -622,7 +607,6 @@ class CacheManager:
                     'hit_rate': hit_rate,
                     'total_requests': total_requests
                 }
-                
         except Exception:
             return {}
 
@@ -653,7 +637,6 @@ class CacheManager:
                 # Execute function and cache result
                 result = func(*args, **kwargs)
                 self.set(cache_key, result, ttl or self.default_ttl)
-                
                 return result
             
             return wrapper
@@ -691,12 +674,9 @@ class CacheManager:
         try:
             # Create a string representation of arguments
             args_str = str(args) + str(sorted(kwargs.items()))
-            
             # Hash the arguments to create a consistent key
             args_hash = hashlib.md5(args_str.encode()).hexdigest()
-            
             return f"{prefix}{func_name}_{args_hash}"
-            
         except Exception:
             # Fallback to simple key
             return f"{prefix}{func_name}_{len(args)}_{len(kwargs)}"
@@ -706,52 +686,117 @@ class CacheManager:
 global_cache = CacheManager(max_size=5000, default_ttl=3600)
 
 
-def memoize(ttl: int = 3600, cache_instance: Optional[CacheManager] = None):
+def timing_decorator(log_output: bool = True, logger: Optional[logging.Logger] = None):
     """
-    Memoization decorator using cache manager.
+    Decorator to measure and log function execution time (supports both sync and async functions)
     
     Args:
-        ttl: Time to live for cached results
-        cache_instance: Specific cache instance to use
+        log_output: Whether to log the timing output
+        logger: Optional logger instance (defaults to module logger)
         
     Returns:
-        Decorator function
-    """
-    cache = cache_instance or global_cache
-    return cache.cache_function(ttl=ttl)
-
-
-def timing_decorator(logger: Optional[logging.Logger] = None):
-    """
-    Decorator to measure function execution time.
-    
-    Args:
-        logger: Optional logger instance
-        
-    Returns:
-        Decorator function
+        Decorated function
     """
     def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
+        @functools.wraps(func)
+        async def async_wrapper(*args, **kwargs):
             start_time = time.time()
             try:
-                result = func(*args, **kwargs)
-                execution_time = time.time() - start_time
+                result = await func(*args, **kwargs)
+                end_time = time.time()
+                execution_time = end_time - start_time
                 
-                if logger:
-                    logger.info(f"{func.__name__} executed in {execution_time:.3f} seconds")
+                if log_output:
+                    log = logger or logging.getLogger(func.__module__)
+                    log.info(f"{func.__name__} executed in {execution_time:.3f} seconds")
                 
                 return result
             except Exception as e:
-                execution_time = time.time() - start_time
-                
-                if logger:
-                    logger.error(f"{func.__name__} failed after {execution_time:.3f} seconds: {str(e)}")
-                
+                end_time = time.time()
+                execution_time = end_time - start_time
+                if log_output:
+                    log = logger or logging.getLogger(func.__module__)
+                    log.error(f"{func.__name__} failed after {execution_time:.3f} seconds: {str(e)}")
                 raise
         
-        return wrapper
+        @functools.wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            start_time = time.time()
+            try:
+                result = func(*args, **kwargs)
+                end_time = time.time()
+                execution_time = end_time - start_time
+                
+                if log_output:
+                    log = logger or logging.getLogger(func.__module__)
+                    log.info(f"{func.__name__} executed in {execution_time:.3f} seconds")
+                
+                return result
+            except Exception as e:
+                end_time = time.time()
+                execution_time = end_time - start_time
+                if log_output:
+                    log = logger or logging.getLogger(func.__module__)
+                    log.error(f"{func.__name__} failed after {execution_time:.3f} seconds: {str(e)}")
+                raise
+        
+        # Return appropriate wrapper based on function type
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+    
+    return decorator
+
+
+def memoize(ttl: int = 3600, cache_instance: Optional[CacheManager] = None, maxsize: int = 128):
+    """
+    Enhanced memoization decorator with both TTL and LRU capabilities
+    
+    Args:
+        ttl: Time to live for cached results (when using cache_instance)
+        cache_instance: Specific cache instance to use (uses TTL)
+        maxsize: Maximum cache size (when using simple LRU cache)
+        
+    Returns:
+        Decorated function
+    """
+    def decorator(func: Callable) -> Callable:
+        if cache_instance:
+            # Use advanced cache manager with TTL
+            return cache_instance.cache_function(ttl=ttl)(func)
+        else:
+            # Use simple LRU cache
+            cache = {}
+            cache_order = []
+            
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                # Create a hashable key from args and kwargs
+                key = str(args) + str(sorted(kwargs.items()))
+                
+                if key in cache:
+                    # Move to end (most recently used)
+                    cache_order.remove(key)
+                    cache_order.append(key)
+                    return cache[key]
+                
+                # Compute result
+                result = func(*args, **kwargs)
+                
+                # Add to cache
+                cache[key] = result
+                cache_order.append(key)
+                
+                # Evict oldest if cache is full
+                if len(cache) > maxsize:
+                    oldest_key = cache_order.pop(0)
+                    del cache[oldest_key]
+                
+                return result
+            
+            return wrapper
+    
     return decorator
 
 
@@ -771,17 +816,15 @@ def retry_on_failure(max_attempts: int = 3, delay: float = 1.0, backoff_factor: 
         @wraps(func)
         def wrapper(*args, **kwargs):
             current_delay = delay
-            
             for attempt in range(max_attempts):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
                     if attempt == max_attempts - 1:
                         raise e
-                    
                     time.sleep(current_delay)
                     current_delay *= backoff_factor
-            
+        
         return wrapper
     return decorator
 
@@ -806,12 +849,12 @@ def safe_divide(numerator: Union[int, float], denominator: Union[int, float], de
         return default
 
 
-def ensure_list(value: Any) -> List[Any]:
+def ensure_list(value: Union[Any, List[Any]]) -> List[Any]:
     """
-    Ensure value is a list.
+    Ensure a value is a list
     
     Args:
-        value: Input value
+        value: Value to ensure is a list
         
     Returns:
         List containing the value(s)
@@ -839,15 +882,12 @@ def deep_merge_dicts(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, 
     """
     try:
         result = dict1.copy()
-        
         for key, value in dict2.items():
             if key in result and isinstance(result[key], dict) and isinstance(value, dict):
                 result[key] = deep_merge_dicts(result[key], value)
             else:
                 result[key] = value
-        
         return result
-        
     except Exception:
         return dict1.copy()
 
@@ -873,7 +913,6 @@ def memory_efficient_chunk_processor(
             processor_func = lambda x: x
         
         results = []
-        
         for i in range(0, len(data), chunk_size):
             chunk = data[i:i + chunk_size]
             processed_chunk = processor_func(chunk)
@@ -883,6 +922,5 @@ def memory_efficient_chunk_processor(
             gc.collect()
         
         return results
-        
     except Exception:
         return []

@@ -10,7 +10,6 @@ from .feature_engineer import (
 )
 from .advanced_features import (
     PredictiveModel,
-    CompetitiveIntelligences,
     AdvancedFeaturesEngine,
     AdvancedMetrics
 )
@@ -50,7 +49,6 @@ __all__ = [
     'FeatureEngineer',
     
     'PredictiveModel',
-    'CompetitiveIntelligences',
     'AdvancedMetrics',
     'AdvancedFeaturesEngine',
     

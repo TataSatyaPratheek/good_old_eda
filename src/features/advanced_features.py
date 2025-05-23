@@ -19,6 +19,7 @@ from src.utils.config_utils import ConfigManager, PathManager
 from src.utils.validation_utils import SchemaValidator, BusinessRuleValidator
 from src.utils.export_utils import ReportExporter, DataExporter
 from src.utils.file_utils import FileManager, ExportManager
+from .competitive_features import CompetitiveIntelligence
 
 @dataclass
 class PredictiveModel:
@@ -29,16 +30,6 @@ class PredictiveModel:
     predictions: pd.Series
     confidence_intervals: pd.DataFrame
     model_metadata: Dict[str, Any]
-
-@dataclass
-class CompetitiveIntelligences:
-    """Data class for competitive intelligence analysis"""
-    market_share_analysis: Dict[str, float]
-    competitor_strength_matrix: pd.DataFrame
-    growth_opportunities: List[Dict[str, Any]]
-    threat_assessment: Dict[str, Any]
-    strategic_recommendations: List[str]
-    predictive_insights: Dict[str, Any]
 
 @dataclass
 class AdvancedMetrics:

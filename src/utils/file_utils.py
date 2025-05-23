@@ -1,5 +1,6 @@
 """
 File Management Utilities for SEO Competitive Intelligence
+
 Advanced file operations, backup management, and data export capabilities
 """
 
@@ -44,11 +45,10 @@ class BackupInfo:
 class FileManager:
     """
     Advanced file management for SEO competitive intelligence.
-    
     Provides comprehensive file operations including safe read/write,
     atomic operations, and file system monitoring.
     """
-    
+
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.temp_dir = Path(tempfile.gettempdir()) / "seo_intelligence"
@@ -76,17 +76,16 @@ class FileManager:
                 fallback_encodings = ['utf-8', 'latin-1', 'cp1252']
             
             path_obj = Path(file_path)
-            
             if not path_obj.exists():
                 raise FileNotFoundError(f"File not found: {file_path}")
-            
+
             # Try primary encoding first
             try:
                 with open(path_obj, 'r', encoding=encoding) as f:
                     return f.read()
             except UnicodeDecodeError:
                 pass
-            
+
             # Try fallback encodings
             for fallback_encoding in fallback_encodings:
                 try:
@@ -96,13 +95,13 @@ class FileManager:
                         return content
                 except UnicodeDecodeError:
                     continue
-            
+
             # If all encodings fail, read as binary and decode with errors='replace'
             with open(path_obj, 'rb') as f:
                 content = f.read().decode('utf-8', errors='replace')
                 self.logger.warning(f"Read {file_path} with error replacement")
                 return content
-                
+
         except Exception as e:
             self.logger.error(f"Error reading file {file_path}: {str(e)}")
             raise
@@ -131,25 +130,23 @@ class FileManager:
         try:
             path_obj = Path(file_path)
             path_obj.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Create backup if requested and file exists
             if backup and path_obj.exists():
                 backup_path = self._create_backup(path_obj)
                 self.logger.info(f"Created backup: {backup_path}")
-            
+
             if atomic:
                 # Atomic write using temporary file
                 temp_path = path_obj.with_suffix(path_obj.suffix + '.tmp')
-                
                 try:
                     with open(temp_path, 'w', encoding=encoding) as f:
                         f.write(content)
                         f.flush()
                         os.fsync(f.fileno())  # Force write to disk
-                    
+
                     # Atomic move
                     temp_path.replace(path_obj)
-                    
                 except Exception as e:
                     # Clean up temp file on error
                     if temp_path.exists():
@@ -159,10 +156,10 @@ class FileManager:
                 # Direct write
                 with open(path_obj, 'w', encoding=encoding) as f:
                     f.write(content)
-            
+
             self.logger.debug(f"Successfully wrote file: {file_path}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error writing file {file_path}: {str(e)}")
             return False
@@ -180,7 +177,6 @@ class FileManager:
         try:
             content = self.safe_read_file(file_path)
             return json.loads(content)
-            
         except json.JSONDecodeError as e:
             self.logger.error(f"Invalid JSON in {file_path}: {str(e)}")
             raise
@@ -210,7 +206,6 @@ class FileManager:
         try:
             json_content = json.dumps(data, indent=indent, default=str, ensure_ascii=False)
             return self.safe_write_file(file_path, json_content, atomic=atomic)
-            
         except Exception as e:
             self.logger.error(f"Error writing JSON file {file_path}: {str(e)}")
             return False
@@ -227,18 +222,17 @@ class FileManager:
         """
         try:
             path_obj = Path(file_path)
-            
             if not path_obj.exists():
                 return None
-            
+
             stat = path_obj.stat()
-            
+
             # Calculate checksum
             checksum = self._calculate_file_checksum(path_obj)
-            
+
             # Determine file type
             file_type = self._determine_file_type(path_obj)
-            
+
             return FileInfo(
                 path=path_obj,
                 size_bytes=stat.st_size,
@@ -247,7 +241,7 @@ class FileManager:
                 checksum=checksum,
                 file_type=file_type
             )
-            
+
         except Exception as e:
             self.logger.error(f"Error getting file info for {file_path}: {str(e)}")
             return None
@@ -281,49 +275,139 @@ class FileManager:
         """
         try:
             directory_path = Path(directory)
-            
             if not directory_path.exists():
                 return []
-            
+
             # Find files using glob
             if recursive:
                 file_paths = directory_path.rglob(pattern)
             else:
                 file_paths = directory_path.glob(pattern)
-            
+
             matching_files = []
-            
+
             for file_path in file_paths:
                 if not file_path.is_file():
                     continue
-                
+
                 file_info = self.get_file_info(file_path)
                 if not file_info:
                     continue
-                
+
                 # Apply filters
                 if file_type and file_info.file_type != file_type:
                     continue
-                
+
                 if min_size and file_info.size_bytes < min_size:
                     continue
-                
+
                 if max_size and file_info.size_bytes > max_size:
                     continue
-                
+
                 if modified_after and file_info.modified_time < modified_after:
                     continue
-                
+
                 if modified_before and file_info.modified_time > modified_before:
                     continue
-                
+
                 matching_files.append(file_info)
-            
+
             return matching_files
-            
+
         except Exception as e:
             self.logger.error(f"Error finding files in {directory}: {str(e)}")
             return []
+
+    # Methods from paste file merged below
+    def ensure_directory(self, path: Union[str, Path]) -> bool:
+        """Ensure directory exists (from paste file)"""
+        try:
+            Path(path).mkdir(parents=True, exist_ok=True)
+            self.logger.debug(f"Ensured directory exists: {path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to create directory {path}: {str(e)}")
+            return False
+
+    def copy_file(
+        self,
+        source: Union[str, Path],
+        destination: Union[str, Path]
+    ) -> bool:
+        """Copy file to destination (from paste file)"""
+        try:
+            source = Path(source)
+            destination = Path(destination)
+            
+            # Ensure destination directory exists
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            
+            shutil.copy2(source, destination)
+            self.logger.info(f"Copied {source} to {destination}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to copy file: {str(e)}")
+            return False
+
+    def move_file(
+        self,
+        source: Union[str, Path],
+        destination: Union[str, Path]
+    ) -> bool:
+        """Move file to destination (from paste file)"""
+        try:
+            source = Path(source)
+            destination = Path(destination)
+            
+            # Ensure destination directory exists
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            
+            shutil.move(str(source), str(destination))
+            self.logger.info(f"Moved {source} to {destination}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Failed to move file: {str(e)}")
+            return False
+
+    def delete_file(self, path: Union[str, Path]) -> bool:
+        """Delete file (from paste file)"""
+        try:
+            Path(path).unlink(missing_ok=True)
+            self.logger.debug(f"Deleted file: {path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to delete file: {str(e)}")
+            return False
+
+    def clean_directory(
+        self,
+        directory: Union[str, Path],
+        keep_days: int = 30
+    ) -> int:
+        """Clean old files from directory (enhanced from paste file)"""
+        try:
+            directory_path = Path(directory)
+            if not directory_path.exists():
+                return 0
+
+            cutoff_time = datetime.now() - timedelta(days=keep_days)
+            deleted_count = 0
+
+            for file_path in directory_path.rglob('*'):
+                if file_path.is_file():
+                    file_info = self.get_file_info(file_path)
+                    if file_info and file_info.modified_time < cutoff_time:
+                        if self.delete_file(file_path):
+                            deleted_count += 1
+
+            self.logger.info(f"Cleaned {deleted_count} old files from {directory}")
+            return deleted_count
+
+        except Exception as e:
+            self.logger.error(f"Error cleaning directory {directory}: {str(e)}")
+            return 0
 
     @contextmanager
     def temp_file(self, suffix: str = "", prefix: str = "temp_", content: str = ""):
@@ -349,7 +433,7 @@ class FileManager:
                     f.write(content)
             
             yield temp_path
-            
+
         finally:
             # Clean up
             if temp_path and temp_path.exists():
@@ -369,13 +453,10 @@ class FileManager:
         """Calculate file checksum."""
         try:
             hash_obj = hashlib.new(algorithm)
-            
             with open(file_path, 'rb') as f:
                 for chunk in iter(lambda: f.read(8192), b""):
                     hash_obj.update(chunk)
-            
             return hash_obj.hexdigest()
-            
         except Exception as e:
             self.logger.error(f"Error calculating checksum for {file_path}: {str(e)}")
             return ""
@@ -383,7 +464,6 @@ class FileManager:
     def _determine_file_type(self, file_path: Path) -> str:
         """Determine file type based on extension and content."""
         extension = file_path.suffix.lower()
-        
         type_mappings = {
             '.xlsx': 'excel',
             '.xls': 'excel',
@@ -399,18 +479,16 @@ class FileManager:
             '.zip': 'archive',
             '.gz': 'compressed'
         }
-        
         return type_mappings.get(extension, 'unknown')
 
 
 class ExportManager:
     """
     Advanced export management for SEO competitive intelligence.
-    
     Handles various export formats and provides compression,
     encryption, and batch export capabilities.
     """
-    
+
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.file_manager = FileManager(logger)
@@ -439,11 +517,11 @@ class ExportManager:
         try:
             path_obj = Path(file_path)
             path_obj.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Auto-detect format from extension
             if format == 'auto':
                 format = self._detect_format_from_extension(path_obj)
-            
+
             # Export based on format
             if format == 'csv':
                 df.to_csv(path_obj, index=False, compression=compression, **kwargs)
@@ -457,10 +535,10 @@ class ExportManager:
                 df.to_pickle(path_obj, compression=compression, **kwargs)
             else:
                 raise ValueError(f"Unsupported export format: {format}")
-            
+
             self.logger.info(f"Exported DataFrame to {file_path} (format: {format})")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error exporting DataFrame: {str(e)}")
             return False
@@ -487,23 +565,22 @@ class ExportManager:
         try:
             output_path = Path(output_directory)
             output_path.mkdir(parents=True, exist_ok=True)
-            
+
             results = {}
-            
+
             for name, df in dataframes.items():
                 file_name = f"{name}.{format}"
                 file_path = output_path / file_name
-                
                 success = self.export_dataframe(
                     df, file_path, format=format, compression=compression
                 )
                 results[name] = success
-            
+
             successful_exports = sum(1 for success in results.values() if success)
             self.logger.info(f"Exported {successful_exports}/{len(dataframes)} DataFrames")
-            
+
             return results
-            
+
         except Exception as e:
             self.logger.error(f"Error exporting multiple DataFrames: {str(e)}")
             return {}
@@ -528,17 +605,15 @@ class ExportManager:
         try:
             archive_path_obj = Path(archive_path)
             archive_path_obj.parent.mkdir(parents=True, exist_ok=True)
-            
+
             with zipfile.ZipFile(
-                archive_path_obj, 
-                'w', 
-                zipfile.ZIP_DEFLATED, 
+                archive_path_obj,
+                'w',
+                zipfile.ZIP_DEFLATED,
                 compresslevel=compression_level
             ) as zipf:
-                
                 for source_file in source_files:
                     source_path = Path(source_file)
-                    
                     if source_path.exists():
                         # Add file to archive with relative name
                         arcname = source_path.name
@@ -546,17 +621,18 @@ class ExportManager:
                         self.logger.debug(f"Added {source_path} to archive as {arcname}")
                     else:
                         self.logger.warning(f"Source file not found: {source_file}")
-            
+
             # Calculate compression ratio
             original_size = sum(Path(f).stat().st_size for f in source_files if Path(f).exists())
             compressed_size = archive_path_obj.stat().st_size
             compression_ratio = (1 - compressed_size / original_size) * 100 if original_size > 0 else 0
-            
+
             self.logger.info(
                 f"Created archive {archive_path} with {compression_ratio:.1f}% compression"
             )
+
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error creating export archive: {str(e)}")
             return False
@@ -564,28 +640,25 @@ class ExportManager:
     def _detect_format_from_extension(self, file_path: Path) -> str:
         """Detect export format from file extension."""
         extension = file_path.suffix.lower()
-        
         format_mappings = {
             '.csv': 'csv',
             '.xlsx': 'excel',
-            '.xls': 'excel', 
+            '.xls': 'excel',
             '.json': 'json',
             '.parquet': 'parquet',
             '.pickle': 'pickle',
             '.pkl': 'pickle'
         }
-        
         return format_mappings.get(extension, 'csv')
 
 
 class BackupManager:
     """
     Advanced backup management for SEO competitive intelligence.
-    
     Provides automated backup scheduling, retention policies,
     and backup verification capabilities.
     """
-    
+
     def __init__(self, backup_directory: Union[str, Path], logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.backup_directory = Path(backup_directory)
@@ -611,21 +684,20 @@ class BackupManager:
         """
         try:
             source_path_obj = Path(source_path)
-            
             if not source_path_obj.exists():
                 raise FileNotFoundError(f"Source path not found: {source_path}")
-            
+
             # Generate backup name
             if backup_name is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup_name = f"{source_path_obj.name}_{timestamp}"
-            
+
             # Determine backup path
             if compression:
                 backup_path = self.backup_directory / f"{backup_name}.zip"
             else:
                 backup_path = self.backup_directory / backup_name
-            
+
             # Create backup
             original_size = self._calculate_size(source_path_obj)
             
@@ -639,12 +711,12 @@ class BackupManager:
                     self._compress_directory(source_path_obj, backup_path)
                 else:
                     shutil.copytree(source_path_obj, backup_path)
-            
+
             # Calculate backup info
             backup_size = self._calculate_size(backup_path)
             compression_ratio = (1 - backup_size / original_size) * 100 if original_size > 0 else 0
             checksum = self.file_manager._calculate_file_checksum(backup_path) if backup_path.is_file() else ""
-            
+
             backup_info = BackupInfo(
                 backup_id=backup_name,
                 source_path=source_path_obj,
@@ -654,10 +726,10 @@ class BackupManager:
                 checksum=checksum,
                 compression_ratio=compression_ratio
             )
-            
+
             self.logger.info(f"Created backup: {backup_path}")
             return backup_info
-            
+
         except Exception as e:
             self.logger.error(f"Error creating backup: {str(e)}")
             return None

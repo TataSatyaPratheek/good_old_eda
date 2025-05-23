@@ -6,7 +6,7 @@ Orchestrates file loading, validation, and merging operations using utility fram
 import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Tuple, Any
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from dataclasses import dataclass
 
 # Import our utilities to eliminate redundancy

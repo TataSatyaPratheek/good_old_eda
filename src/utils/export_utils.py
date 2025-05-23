@@ -29,47 +29,66 @@ class ExportConfiguration:
 class ReportExporter:
     """
     Advanced report export for SEO competitive intelligence.
-    
     Handles comprehensive report generation with multiple formats,
     embedded visualizations, and executive summaries.
     """
-    
+
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
         self.export_templates = self._initialize_export_templates()
 
     def export_executive_report(
         self,
-        analysis_results: Dict[str, Any],
-        export_path: Union[str, Path],
+        analysis_results: Dict[str, Any] = None,
+        export_path: Union[str, Path] = None,
         format: str = 'html',
-        include_charts: bool = True
+        include_charts: bool = True,
+        # Parameters from paste file for backward compatibility
+        data: Dict[str, Any] = None,
+        output_path: str = None
     ) -> bool:
         """
         Export comprehensive executive report.
         
         Args:
-            analysis_results: Analysis results dictionary
-            export_path: Output file path
+            analysis_results: Analysis results dictionary (preferred parameter)
+            export_path: Output file path (preferred parameter)
             format: Export format ('html', 'pdf', 'docx')
             include_charts: Whether to include charts
+            data: Analysis data (backward compatibility)
+            output_path: Output path (backward compatibility)
             
         Returns:
             True if export successful
         """
         try:
+            # Handle backward compatibility
+            if data is not None and analysis_results is None:
+                analysis_results = data
+            if output_path is not None and export_path is None:
+                export_path = output_path
+            
+            if analysis_results is None or export_path is None:
+                raise ValueError("Missing required parameters: analysis_results and export_path")
+            
             export_path = Path(export_path)
             export_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             if format == 'html':
                 return self._export_html_report(analysis_results, export_path, include_charts)
             elif format == 'pdf':
                 return self._export_pdf_report(analysis_results, export_path, include_charts)
             elif format == 'docx':
                 return self._export_docx_report(analysis_results, export_path, include_charts)
+            elif format == 'json':
+                # JSON fallback from paste file
+                with open(export_path, 'w') as f:
+                    json.dump(analysis_results, f, indent=2, default=str)
+                self.logger.info(f"Exported executive report to {export_path}")
+                return True
             else:
                 raise ValueError(f"Unsupported export format: {format}")
-                
+
         except Exception as e:
             self.logger.error(f"Error exporting executive report: {str(e)}")
             return False
@@ -93,21 +112,21 @@ class ReportExporter:
         """
         try:
             export_path = Path(export_path)
-            
+
             # Generate comprehensive competitive report
             report_content = self._generate_competitive_report_content(
                 competitive_data, analysis_results
             )
-            
+
             # Export as HTML with embedded charts
             html_content = self._create_competitive_html_report(report_content)
-            
+
             with open(export_path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            
+
             self.logger.info(f"Competitive analysis report exported to {export_path}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error exporting competitive analysis report: {str(e)}")
             return False
@@ -133,24 +152,74 @@ class ReportExporter:
         """
         try:
             export_path = Path(export_path)
-            
+
             # Prepare keyword analysis
             keyword_analysis = self._analyze_keyword_performance(
                 keyword_data, performance_metrics, top_n_keywords
             )
-            
+
             # Generate report content
             report_html = self._create_keyword_performance_html(keyword_analysis)
-            
+
             with open(export_path, 'w', encoding='utf-8') as f:
                 f.write(report_html)
-            
+
             self.logger.info(f"Keyword performance report exported to {export_path}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error exporting keyword performance report: {str(e)}")
             return False
+
+    # Additional methods from paste file
+    def export_analysis_report(
+        self,
+        data: Dict[str, Any],
+        output_path: str
+    ) -> bool:
+        """Export analysis report (from paste file)"""
+        try:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(output_path, 'w') as f:
+                json.dump(data, f, indent=2, default=str)
+            
+            self.logger.info(f"Exported analysis report to {output_path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to export analysis report: {str(e)}")
+            return False
+
+    def export_data_quality_report(
+        self,
+        quality_data: pd.DataFrame,
+        output_path: str
+    ) -> bool:
+        """Export data quality report (from paste file)"""
+        try:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            quality_data.to_excel(output_path, index=False)
+            self.logger.info(f"Exported data quality report to {output_path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to export data quality report: {str(e)}")
+            return False
+
+    def export_strategic_recommendations_report(
+        self,
+        recommendations: Dict[str, Any],
+        output_path: str
+    ) -> bool:
+        """Export strategic recommendations (from paste file)"""
+        return self.export_analysis_report(recommendations, output_path)
+
+    def export_competitive_intelligence_briefing(
+        self,
+        intelligence: Dict[str, Any],
+        output_path: str
+    ) -> bool:
+        """Export competitive intelligence briefing (from paste file)"""
+        return self.export_executive_report(data=intelligence, output_path=output_path)
 
     def _export_html_report(
         self,
@@ -162,14 +231,46 @@ class ReportExporter:
         try:
             # Generate HTML content
             html_content = self._generate_html_report_content(analysis_results, include_charts)
-            
+
             with open(export_path, 'w', encoding='utf-8') as f:
                 f.write(html_content)
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error exporting HTML report: {str(e)}")
+            return False
+
+    def _export_pdf_report(
+        self,
+        analysis_results: Dict[str, Any],
+        export_path: Path,
+        include_charts: bool
+    ) -> bool:
+        """Export PDF format report."""
+        try:
+            # This would implement PDF export functionality
+            # For now, fallback to HTML
+            html_path = export_path.with_suffix('.html')
+            return self._export_html_report(analysis_results, html_path, include_charts)
+        except Exception as e:
+            self.logger.error(f"Error exporting PDF report: {str(e)}")
+            return False
+
+    def _export_docx_report(
+        self,
+        analysis_results: Dict[str, Any],
+        export_path: Path,
+        include_charts: bool
+    ) -> bool:
+        """Export DOCX format report."""
+        try:
+            # This would implement DOCX export functionality
+            # For now, fallback to HTML
+            html_path = export_path.with_suffix('.html')
+            return self._export_html_report(analysis_results, html_path, include_charts)
+        except Exception as e:
+            self.logger.error(f"Error exporting DOCX report: {str(e)}")
             return False
 
     def _generate_html_report_content(
@@ -178,672 +279,281 @@ class ReportExporter:
         include_charts: bool
     ) -> str:
         """Generate HTML report content."""
-        
         # Extract key metrics
         position_metrics = analysis_results.get('position_analysis', {})
         traffic_metrics = analysis_results.get('traffic_analysis', {})
         competitive_metrics = analysis_results.get('competitive_analysis', {})
+
+        html_template = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>SEO Intelligence Report</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }}
+        .container {{ max-width: 1200px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        h1 {{ color: #2c3e50; text-align: center; border-bottom: 3px solid #3498db; padding-bottom: 10px; }}
+        h2 {{ color: #34495e; margin-top: 30px; }}
+        .metric {{ margin: 10px 0; padding: 10px; background-color: #ecf0f1; border-radius: 5px; }}
+        .summary {{ background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+        .recommendations {{ background-color: #d5f4e6; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+        .chart-placeholder {{ background-color: #f8f9fa; padding: 40px; text-align: center; border: 2px dashed #dee2e6; margin: 20px 0; }}
+        .data-section {{ margin: 20px 0; }}
+        .metric-value {{ font-weight: bold; color: #3498db; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SEO Competitive Intelligence Report</h1>
         
-        html_template = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>SEO Competitive Intelligence Report</title>
-            <style>
-                {self._get_report_css()}
-            </style>
-            {self._get_chart_scripts() if include_charts else ''}
-        </head>
-        <body>
-            <div class="container">
-                <header class="report-header">
-                    <h1>SEO Competitive Intelligence Report</h1>
-                    <p class="report-date">Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-                </header>
-                
-                <section class="executive-summary">
-                    <h2>Executive Summary</h2>
-                    {self._generate_executive_summary(analysis_results)}
-                </section>
-                
-                <section class="key-metrics">
-                    <h2>Key Performance Metrics</h2>
-                    {self._generate_key_metrics_section(position_metrics, traffic_metrics)}
-                </section>
-                
-                <section class="competitive-landscape">
-                    <h2>Competitive Landscape</h2>
-                    {self._generate_competitive_section(competitive_metrics)}
-                </section>
-                
-                <section class="recommendations">
-                    <h2>Strategic Recommendations</h2>
-                    {self._generate_recommendations_section(analysis_results)}
-                </section>
-                
-                {self._generate_charts_section(analysis_results) if include_charts else ''}
-                
-                <footer class="report-footer">
-                    <p>Report generated by SEO Competitive Intelligence Platform</p>
-                </footer>
+        <div class="summary">
+            <h2>Executive Summary</h2>
+            <p>This report provides comprehensive analysis of SEO performance and competitive positioning for the analyzed domain. 
+            Key findings include position trends, traffic analysis, and competitive landscape insights.</p>
+        </div>
+
+        <div class="data-section">
+            <h2>Position Analysis</h2>
+            <div class="metric">
+                <strong>Average Position:</strong> <span class="metric-value">{position_metrics.get('avg_position', 'N/A')}</span>
             </div>
-        </body>
-        </html>
-        """
+            <div class="metric">
+                <strong>Top 10 Ratio:</strong> <span class="metric-value">{position_metrics.get('top_10_ratio', 'N/A')}</span>
+            </div>
+            <div class="metric">
+                <strong>Position Volatility:</strong> <span class="metric-value">{position_metrics.get('position_volatility', 'N/A')}</span>
+            </div>
+        </div>
+
+        <div class="data-section">
+            <h2>Traffic Analysis</h2>
+            <div class="metric">
+                <strong>Total Traffic:</strong> <span class="metric-value">{traffic_metrics.get('total_traffic', 'N/A')}</span>
+            </div>
+            <div class="metric">
+                <strong>Traffic Growth:</strong> <span class="metric-value">{traffic_metrics.get('traffic_growth', 'N/A')}</span>
+            </div>
+        </div>
+
+        <div class="data-section">
+            <h2>Competitive Analysis</h2>
+            <div class="metric">
+                <strong>Competitive Position:</strong> <span class="metric-value">{competitive_metrics.get('competitive_position', 'N/A')}</span>
+            </div>
+            <div class="metric">
+                <strong>Market Share:</strong> <span class="metric-value">{competitive_metrics.get('market_share', 'N/A')}</span>
+            </div>
+        </div>
+
+        <div class="recommendations">
+            <h2>Strategic Recommendations</h2>
+            <ul>
+                <li>Focus on keywords ranking in positions 4-10 for quick wins</li>
+                <li>Develop content targeting high-volume, low-competition keywords</li>
+                <li>Monitor competitor activities and respond to strategic moves</li>
+            </ul>
+        </div>
+
+        {"<div class='chart-placeholder'><h3>Interactive Analysis Dashboard</h3><p>Charts would be embedded here when include_charts=True</p></div>" if include_charts else ""}
         
+        <div class="data-section">
+            <h2>Raw Data</h2>
+            <pre style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 12px;">
+{json.dumps(analysis_results, indent=2, default=str)}
+            </pre>
+        </div>
+    </div>
+</body>
+</html>"""
+
         return html_template
 
-    def _get_report_css(self) -> str:
-        """Get CSS styles for HTML reports."""
-        return """
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: #f8f9fa;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        
-        .report-header {
-            text-align: center;
-            border-bottom: 3px solid #007db8;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .report-header h1 {
-            color: #007db8;
-            margin: 0;
-            font-size: 2.5em;
-        }
-        
-        .report-date {
-            color: #666;
-            font-style: italic;
-        }
-        
-        section {
-            margin-bottom: 40px;
-        }
-        
-        h2 {
-            color: #333;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
-        
-        .metric-card {
-            display: inline-block;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 10px;
-            min-width: 200px;
-            text-align: center;
-        }
-        
-        .metric-value {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #007db8;
-        }
-        
-        .metric-label {
-            color: #666;
-            margin-top: 5px;
-        }
-        
-        .recommendation {
-            background: #e8f4f8;
-            border-left: 4px solid #007db8;
-            padding: 15px;
-            margin: 10px 0;
-        }
-        
-        .chart-container {
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        
-        th, td {
-            border: 1px solid #ddd;
-            padding: 12px;
-            text-align: left;
-        }
-        
-        th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-        }
-        
-        .report-footer {
-            text-align: center;
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            color: #666;
-        }
-        """
+    def _generate_html_report(self, data: Dict[str, Any], include_charts: bool) -> str:
+        """Generate simple HTML report (from paste file for compatibility)"""
+        html = f"""<html>
+<head>
+    <title>SEO Intelligence Report</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h1 {{ color: #333; }}
+        .metric {{ margin: 10px 0; }}
+    </style>
+</head>
+<body>
+    <h1>SEO Intelligence Report</h1>
+    <div class="content">
+        {json.dumps(data, indent=2, default=str).replace('\n', '<br>')}
+    </div>
+</body>
+</html>"""
+        return html
 
     def _initialize_export_templates(self) -> Dict[str, str]:
         """Initialize export templates."""
         return {
-            'executive_summary': """
-            <div class="executive-summary-content">
-                <p>This report provides comprehensive analysis of SEO performance and competitive positioning 
-                for the analyzed domain. Key findings include position trends, traffic analysis, and 
-                competitive landscape insights.</p>
-            </div>
-            """,
-            'recommendations': """
-            <div class="recommendations-list">
-                <div class="recommendation">
-                    <h4>Immediate Opportunities</h4>
-                    <p>Focus on keywords ranking in positions 4-10 for quick wins</p>
-                </div>
-                <div class="recommendation">
-                    <h4>Content Strategy</h4>
-                    <p>Develop content targeting high-volume, low-competition keywords</p>
-                </div>
-                <div class="recommendation">
-                    <h4>Competitive Response</h4>
-                    <p>Monitor competitor activities and respond to strategic moves</p>
-                </div>
-            </div>
-            """
+            'executive': 'executive_template.html',
+            'competitive': 'competitive_template.html',
+            'keyword': 'keyword_template.html'
         }
+
+    def _generate_competitive_report_content(
+        self,
+        competitive_data: Dict[str, pd.DataFrame],
+        analysis_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate competitive report content."""
+        return {
+            'competitive_data': competitive_data,
+            'analysis_results': analysis_results,
+            'timestamp': datetime.now().isoformat()
+        }
+
+    def _create_competitive_html_report(self, report_content: Dict[str, Any]) -> str:
+        """Create competitive analysis HTML report."""
+        return self._generate_html_report_content(report_content, True)
+
+    def _analyze_keyword_performance(
+        self,
+        keyword_data: pd.DataFrame,
+        performance_metrics: Dict[str, Any],
+        top_n_keywords: int
+    ) -> Dict[str, Any]:
+        """Analyze keyword performance for reporting."""
+        try:
+            # Get top performing keywords
+            if 'Traffic (%)' in keyword_data.columns:
+                top_keywords = keyword_data.nlargest(top_n_keywords, 'Traffic (%)')
+            else:
+                top_keywords = keyword_data.head(top_n_keywords)
+
+            return {
+                'top_keywords': top_keywords.to_dict('records'),
+                'performance_metrics': performance_metrics,
+                'total_keywords': len(keyword_data)
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing keyword performance: {str(e)}")
+            return {}
+
+    def _create_keyword_performance_html(self, keyword_analysis: Dict[str, Any]) -> str:
+        """Create keyword performance HTML report."""
+        return self._generate_html_report_content(keyword_analysis, True)
 
 
 class DataExporter:
-    """
-    Advanced data export utilities for SEO competitive intelligence.
-    
-    Provides flexible data export capabilities with multiple formats,
-    compression, and metadata inclusion.
-    """
+    """Export data in various formats (from paste file)"""
     
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger(__name__)
-
+    
     def export_analysis_dataset(
         self,
-        data: Union[pd.DataFrame, Dict[str, pd.DataFrame]],
-        export_path: Union[str, Path],
-        config: Optional[ExportConfiguration] = None
+        datasets: Dict[str, pd.DataFrame],
+        output_path: str
     ) -> bool:
-        """
-        Export analysis dataset with comprehensive configuration options.
-        
-        Args:
-            data: Data to export (DataFrame or dict of DataFrames)
-            export_path: Output file path
-            config: Export configuration
-            
-        Returns:
-            True if export successful
-        """
+        """Export multiple datasets to Excel"""
         try:
-            if config is None:
-                config = ExportConfiguration(
-                    format='csv',
-                    compression=False,
-                    include_metadata=True,
-                    date_format='%Y-%m-%d',
-                    decimal_places=3,
-                    include_index=False,
-                    custom_headers={}
-                )
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
-            export_path = Path(export_path)
-            export_path.parent.mkdir(parents=True, exist_ok=True)
+            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                for sheet_name, df in datasets.items():
+                    # Truncate sheet name if too long
+                    sheet_name = sheet_name[:31]
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
             
-            if isinstance(data, pd.DataFrame):
-                return self._export_single_dataframe(data, export_path, config)
-            elif isinstance(data, dict):
-                return self._export_multiple_dataframes(data, export_path, config)
-            else:
-                raise ValueError("Data must be DataFrame or dict of DataFrames")
-                
+            self.logger.info(f"Exported {len(datasets)} datasets to {output_path}")
+            return True
+            
         except Exception as e:
-            self.logger.error(f"Error exporting analysis dataset: {str(e)}")
+            self.logger.error(f"Failed to export datasets: {str(e)}")
             return False
-
+    
     def export_with_metadata(
         self,
         data: pd.DataFrame,
         metadata: Dict[str, Any],
-        export_path: Union[str, Path],
-        format: str = 'excel'
+        export_path: str
     ) -> bool:
-        """
-        Export data with comprehensive metadata.
-        
-        Args:
-            data: DataFrame to export
-            metadata: Metadata dictionary
-            export_path: Output file path
-            format: Export format
-            
-        Returns:
-            True if export successful
-        """
+        """Export data with metadata"""
         try:
-            export_path = Path(export_path)
+            Path(export_path).parent.mkdir(parents=True, exist_ok=True)
             
-            if format == 'excel':
-                with pd.ExcelWriter(export_path, engine='openpyxl') as writer:
-                    # Write main data
-                    data.to_excel(writer, sheet_name='Data', index=False)
-                    
-                    # Write metadata
-                    metadata_df = pd.DataFrame(list(metadata.items()), columns=['Key', 'Value'])
-                    metadata_df.to_excel(writer, sheet_name='Metadata', index=False)
-                    
-                    # Write data dictionary if available
-                    if 'data_dictionary' in metadata:
-                        dict_df = pd.DataFrame(metadata['data_dictionary'])
-                        dict_df.to_excel(writer, sheet_name='Data_Dictionary', index=False)
-            
-            elif format == 'json':
-                export_data = {
-                    'data': data.to_dict('records'),
-                    'metadata': metadata,
-                    'export_timestamp': datetime.now().isoformat()
-                }
+            with pd.ExcelWriter(export_path, engine='openpyxl') as writer:
+                # Write main data
+                data.to_excel(writer, sheet_name='Data', index=False)
                 
-                with open(export_path, 'w') as f:
-                    json.dump(export_data, f, indent=2, default=str)
+                # Write metadata
+                metadata_df = pd.DataFrame([metadata])
+                metadata_df.to_excel(writer, sheet_name='Metadata', index=False)
             
-            else:
-                raise ValueError(f"Unsupported format for metadata export: {format}")
-            
-            self.logger.info(f"Data with metadata exported to {export_path}")
+            self.logger.info(f"Exported data with metadata to {export_path}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Error exporting data with metadata: {str(e)}")
+            self.logger.error(f"Failed to export with metadata: {str(e)}")
             return False
 
-    def create_data_package(
+    def export_to_csv(
+        self,
+        data: pd.DataFrame,
+        output_path: str,
+        encoding: str = 'utf-8'
+    ) -> bool:
+        """Export DataFrame to CSV"""
+        try:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            data.to_csv(output_path, index=False, encoding=encoding)
+            self.logger.info(f"Exported CSV to {output_path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to export CSV: {str(e)}")
+            return False
+
+    def export_to_json(
+        self,
+        data: Union[pd.DataFrame, Dict[str, Any]],
+        output_path: str,
+        orient: str = 'records'
+    ) -> bool:
+        """Export data to JSON"""
+        try:
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            
+            if isinstance(data, pd.DataFrame):
+                data.to_json(output_path, orient=orient, indent=2)
+            else:
+                with open(output_path, 'w') as f:
+                    json.dump(data, f, indent=2, default=str)
+            
+            self.logger.info(f"Exported JSON to {output_path}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to export JSON: {str(e)}")
+            return False
+
+    def export_compressed_dataset(
         self,
         datasets: Dict[str, pd.DataFrame],
-        package_path: Union[str, Path],
-        include_documentation: bool = True
+        output_path: str,
+        compression: str = 'zip'
     ) -> bool:
-        """
-        Create comprehensive data package with multiple datasets.
-        
-        Args:
-            datasets: Dictionary of datasets to package
-            package_path: Output package path (zip file)
-            include_documentation: Whether to include documentation
-            
-        Returns:
-            True if package created successfully
-        """
+        """Export datasets as compressed archive"""
         try:
-            package_path = Path(package_path)
-            package_path.parent.mkdir(parents=True, exist_ok=True)
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
-            with zipfile.ZipFile(package_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Export each dataset
-                for name, df in datasets.items():
-                    # Create temporary CSV
-                    csv_content = df.to_csv(index=False)
-                    zipf.writestr(f"{name}.csv", csv_content)
-                    
-                    # Create data summary
-                    summary = self._create_dataset_summary(df, name)
-                    zipf.writestr(f"{name}_summary.json", json.dumps(summary, indent=2, default=str))
-                
-                # Include package metadata
-                package_metadata = {
-                    'created_by': 'SEO Competitive Intelligence Platform',
-                    'creation_date': datetime.now().isoformat(),
-                    'datasets': list(datasets.keys()),
-                    'total_records': sum(len(df) for df in datasets.values()),
-                    'package_version': '1.0'
-                }
-                zipf.writestr('package_metadata.json', json.dumps(package_metadata, indent=2))
-                
-                # Include documentation if requested
-                if include_documentation:
-                    documentation = self._generate_package_documentation(datasets)
-                    zipf.writestr('README.md', documentation)
+            if compression == 'zip':
+                with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for name, df in datasets.items():
+                        # Create CSV in memory
+                        csv_buffer = BytesIO()
+                        df.to_csv(csv_buffer, index=False)
+                        csv_buffer.seek(0)
+                        
+                        # Add to zip
+                        zipf.writestr(f"{name}.csv", csv_buffer.getvalue())
             
-            self.logger.info(f"Data package created: {package_path}")
+            self.logger.info(f"Exported compressed datasets to {output_path}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Error creating data package: {str(e)}")
+            self.logger.error(f"Failed to export compressed dataset: {str(e)}")
             return False
-
-    def _export_single_dataframe(
-        self,
-        df: pd.DataFrame,
-        export_path: Path,
-        config: ExportConfiguration
-    ) -> bool:
-        """Export single DataFrame with configuration."""
-        try:
-            # Apply configuration
-            export_df = df.copy()
-            
-            # Apply custom headers
-            if config.custom_headers:
-                export_df = export_df.rename(columns=config.custom_headers)
-            
-            # Format numeric columns
-            numeric_columns = export_df.select_dtypes(include=[np.number]).columns
-            for col in numeric_columns:
-                export_df[col] = export_df[col].round(config.decimal_places)
-            
-            # Export based on format
-            if config.format == 'csv':
-                export_df.to_csv(
-                    export_path,
-                    index=config.include_index,
-                    compression='gzip' if config.compression else None
-                )
-            elif config.format == 'excel':
-                export_df.to_excel(export_path, index=config.include_index)
-            elif config.format == 'json':
-                export_df.to_json(
-                    export_path,
-                    orient='records',
-                    date_format=config.date_format,
-                    indent=2
-                )
-            elif config.format == 'parquet':
-                export_df.to_parquet(
-                    export_path,
-                    compression='gzip' if config.compression else None
-                )
-            
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error exporting single DataFrame: {str(e)}")
-            return False
-
-    def _create_dataset_summary(self, df: pd.DataFrame, name: str) -> Dict[str, Any]:
-        """Create summary for dataset."""
-        return {
-            'name': name,
-            'records': len(df),
-            'columns': len(df.columns),
-            'column_names': df.columns.tolist(),
-            'data_types': df.dtypes.astype(str).to_dict(),
-            'missing_values': df.isnull().sum().to_dict(),
-            'memory_usage': df.memory_usage(deep=True).sum(),
-            'creation_date': datetime.now().isoformat()
-        }
-
-
-class VisualizationExporter:
-    """
-    Advanced visualization export for SEO competitive intelligence.
-    
-    Handles export of charts, dashboards, and interactive visualizations
-    in multiple formats with customization options.
-    """
-    
-    def __init__(self, logger: Optional[logging.Logger] = None):
-        self.logger = logger or logging.getLogger(__name__)
-
-    def export_chart_collection(
-        self,
-        charts: Dict[str, Any],
-        export_directory: Union[str, Path],
-        formats: List[str] = None,
-        resolution: int = 300
-    ) -> Dict[str, bool]:
-        """
-        Export collection of charts in multiple formats.
-        
-        Args:
-            charts: Dictionary of chart objects
-            export_directory: Output directory
-            formats: Export formats ('png', 'svg', 'pdf', 'html')
-            resolution: Image resolution for raster formats
-            
-        Returns:
-            Dictionary of export results by chart name
-        """
-        try:
-            if formats is None:
-                formats = ['png', 'html']
-            
-            export_dir = Path(export_directory)
-            export_dir.mkdir(parents=True, exist_ok=True)
-            
-            results = {}
-            
-            for chart_name, chart_obj in charts.items():
-                chart_results = {}
-                
-                for format in formats:
-                    try:
-                        output_path = export_dir / f"{chart_name}.{format}"
-                        
-                        if hasattr(chart_obj, 'write_image') and format in ['png', 'jpg', 'svg', 'pdf']:
-                            # Plotly chart
-                            chart_obj.write_image(
-                                output_path,
-                                width=1200,
-                                height=800,
-                                scale=resolution/100
-                            )
-                        elif hasattr(chart_obj, 'write_html') and format == 'html':
-                            # Plotly HTML
-                            chart_obj.write_html(output_path)
-                        elif hasattr(chart_obj, 'savefig'):
-                            # Matplotlib chart
-                            chart_obj.savefig(output_path, dpi=resolution, bbox_inches='tight')
-                        else:
-                            # Generic export attempt
-                            self._generic_chart_export(chart_obj, output_path, format)
-                        
-                        chart_results[format] = True
-                        
-                    except Exception as e:
-                        self.logger.error(f"Error exporting {chart_name} as {format}: {str(e)}")
-                        chart_results[format] = False
-                
-                results[chart_name] = chart_results
-            
-            successful_exports = sum(
-                sum(1 for success in chart_results.values() if success)
-                for chart_results in results.values()
-            )
-            
-            self.logger.info(f"Chart collection export completed: {successful_exports} successful exports")
-            return results
-            
-        except Exception as e:
-            self.logger.error(f"Error exporting chart collection: {str(e)}")
-            return {}
-
-    def export_interactive_dashboard(
-        self,
-        dashboard_components: Dict[str, Any],
-        export_path: Union[str, Path],
-        template: str = 'bootstrap'
-    ) -> bool:
-        """
-        Export interactive dashboard as standalone HTML.
-        
-        Args:
-            dashboard_components: Dashboard components (charts, tables, etc.)
-            export_path: Output HTML file path
-            template: Dashboard template style
-            
-        Returns:
-            True if export successful
-        """
-        try:
-            export_path = Path(export_path)
-            export_path.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Generate dashboard HTML
-            dashboard_html = self._create_interactive_dashboard_html(
-                dashboard_components, template
-            )
-            
-            with open(export_path, 'w', encoding='utf-8') as f:
-                f.write(dashboard_html)
-            
-            self.logger.info(f"Interactive dashboard exported to {export_path}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error exporting interactive dashboard: {str(e)}")
-            return False
-
-    def export_chart_as_base64(
-        self,
-        chart_obj: Any,
-        format: str = 'png',
-        width: int = 800,
-        height: int = 600
-    ) -> Optional[str]:
-        """
-        Export chart as base64 encoded string for embedding.
-        
-        Args:
-            chart_obj: Chart object to export
-            format: Image format
-            width: Image width
-            height: Image height
-            
-        Returns:
-            Base64 encoded string or None if failed
-        """
-        try:
-            if hasattr(chart_obj, 'to_image'):
-                # Plotly chart
-                img_bytes = chart_obj.to_image(
-                    format=format,
-                    width=width,
-                    height=height,
-                    scale=2
-                )
-            elif hasattr(chart_obj, 'savefig'):
-                # Matplotlib chart
-                buffer = BytesIO()
-                chart_obj.savefig(buffer, format=format, dpi=150, bbox_inches='tight')
-                buffer.seek(0)
-                img_bytes = buffer.getvalue()
-            else:
-                return None
-            
-            # Encode as base64
-            base64_string = base64.b64encode(img_bytes).decode('utf-8')
-            return f"data:image/{format};base64,{base64_string}"
-            
-        except Exception as e:
-            self.logger.error(f"Error converting chart to base64: {str(e)}")
-            return None
-
-    def _generic_chart_export(
-        self,
-        chart_obj: Any,
-        output_path: Path,
-        format: str
-    ):
-        """Generic chart export for unknown chart types."""
-        # Try common export methods
-        export_methods = ['save', 'export', 'write', 'to_file']
-        
-        for method_name in export_methods:
-            if hasattr(chart_obj, method_name):
-                method = getattr(chart_obj, method_name)
-                try:
-                    method(str(output_path))
-                    return
-                except:
-                    continue
-        
-        raise ValueError(f"Unable to export chart of type {type(chart_obj)}")
-
-    def _create_interactive_dashboard_html(
-        self,
-        components: Dict[str, Any],
-        template: str
-    ) -> str:
-        """Create interactive dashboard HTML."""
-        
-        # Convert charts to HTML/base64
-        chart_html_elements = []
-        
-        for name, component in components.items():
-            if hasattr(component, 'to_html'):
-                # Plotly chart
-                chart_html = component.to_html(
-                    include_plotlyjs='cdn',
-                    div_id=f"chart_{name}"
-                )
-                chart_html_elements.append(f'<div class="chart-container">{chart_html}</div>')
-            elif hasattr(component, 'to_dict'):
-                # DataFrame table
-                table_html = component.to_html(classes='table table-striped')
-                chart_html_elements.append(f'<div class="table-container">{table_html}</div>')
-            else:
-                # Generic component
-                chart_html_elements.append(f'<div class="component-container">{str(component)}</div>')
-        
-        dashboard_template = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>SEO Competitive Intelligence Dashboard</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-            <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-            <style>
-                .chart-container {{ margin: 20px 0; }}
-                .table-container {{ margin: 20px 0; }}
-                .dashboard-header {{ 
-                    background: linear-gradient(135deg, #007db8, #0096d6);
-                    color: white;
-                    padding: 30px 0;
-                    margin-bottom: 30px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="dashboard-header">
-                <div class="container">
-                    <h1>SEO Competitive Intelligence Dashboard</h1>
-                    <p class="lead">Interactive Analysis Dashboard</p>
-                </div>
-            </div>
-            
-            <div class="container">
-                {"".join(chart_html_elements)}
-            </div>
-            
-            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-        </body>
-        </html>
-        """
-        
-        return dashboard_template

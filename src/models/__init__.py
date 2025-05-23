@@ -20,8 +20,7 @@ from .anomaly_detector import (
 from .ensemble_models import (
     EnsembleModelManager,
     EnsembleConfig,
-    EnsembleResult,
-    ModelPerformance
+    EnsembleResult
 )
 from .model_evaluator import (
     ModelEvaluator,

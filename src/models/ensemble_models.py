@@ -31,19 +31,8 @@ class EnsembleConfig:
     model_interpretability: bool = True
     performance_threshold: float = 0.8
 
-@dataclass
-class ModelPerformance:
-    """Individual model performance metrics"""
-    model_name: str
-    accuracy: float
-    precision: float
-    recall: float
-    f1_score: float
-    roc_auc: float
-    training_time: float
-    prediction_time: float
-    feature_importance: Dict[str, float]
-    cross_val_scores: List[float]
+# Import ModelPerformance from model_evaluator to avoid duplication
+from .model_evaluator import ModelPerformance
 
 @dataclass
 class EnsembleResult:
