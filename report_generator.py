@@ -1,24 +1,35 @@
 """
-Simple Report Generator
-Clean, readable reports without complexity
+Enhanced Report Generator with Visualizations (Brick 3)
+Clean, readable reports with charts and visual analysis
 """
 
 import json
+import matplotlib.pyplot as plt
+import seaborn as sns
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
+import pandas as pd
+import numpy as np
 
 class ReportGenerator:
-    """Generate simple, clean reports"""
+    """Generate comprehensive reports with visualizations"""
     
     def __init__(self):
         self.reports_dir = Path("reports")
         self.reports_dir.mkdir(exist_ok=True)
+        
+        # Create subdirectories
+        (self.reports_dir / "visuals").mkdir(exist_ok=True)
+        
+        # Set matplotlib style
+        plt.style.use('default')
+        sns.set_palette("husl")
     
     def generate_all_reports(self, analysis_results: Dict[str, Any]) -> Dict[str, str]:
         """Generate all reports"""
         
-        print("📝 Generating reports...")
+        print("📝 Generating comprehensive reports...")
         
         reports = {
             'html': self._generate_html_report(analysis_results),
@@ -29,108 +40,525 @@ class ReportGenerator:
         print("✅ Reports generated successfully!")
         return reports
     
+    def generate_visualizations(self, results: Dict[str, Any]) -> Dict[str, str]:
+        """Generate visualization charts (Brick 3)"""
+        
+        print("📊 Generating visualizations...")
+        
+        viz_dir = self.reports_dir / "visuals"
+        viz_dir.mkdir(exist_ok=True)
+        
+        charts = {}
+        
+        try:
+            # Market share pie chart
+            competitive = results.get('competitive', {})
+            if 'market_share' in competitive:
+                charts['market_share'] = self._create_market_share_chart(competitive['market_share'], viz_dir)
+            
+            # Position distribution chart
+            keyword_analysis = results.get('keyword_analysis', {})
+            if 'position_distribution' in keyword_analysis:
+                charts['position_dist'] = self._create_position_distribution_chart(keyword_analysis['position_distribution'], viz_dir)
+            
+            # Traffic comparison bar chart
+            if 'traffic_comparison' in competitive:
+                charts['traffic_comparison'] = self._create_traffic_comparison_chart(competitive['traffic_comparison'], viz_dir)
+            
+            # Opportunity analysis scatter plot
+            opportunity_analysis = results.get('opportunity_analysis', {})
+            if 'high_value_opportunities' in opportunity_analysis:
+                charts['opportunities'] = self._create_opportunities_chart(opportunity_analysis['high_value_opportunities'], viz_dir)
+            
+            print(f"📊 Generated {len(charts)} visualizations")
+            
+        except Exception as e:
+            print(f"⚠️ Error generating some visualizations: {e}")
+        
+        return charts
+    
+    def _create_market_share_chart(self, market_share: Dict[str, float], viz_dir: Path) -> str:
+        """Create market share pie chart"""
+        
+        plt.figure(figsize=(10, 8))
+        
+        companies = list(market_share.keys())
+        shares = list(market_share.values())
+        colors = ['#2E86C1', '#F39C12', '#27AE60']  # Blue, Orange, Green
+        
+        # Create pie chart
+        wedges, texts, autotexts = plt.pie(shares, labels=companies, autopct='%1.1f%%', 
+                                          colors=colors, startangle=90, explode=(0.05, 0, 0))
+        
+        # Enhance text
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontweight('bold')
+            autotext.set_fontsize(12)
+        
+        for text in texts:
+            text.set_fontsize(14)
+            text.set_fontweight('bold')
+        
+        plt.title('Market Share by Organic Traffic', fontsize=16, fontweight='bold', pad=20)
+        
+        # Add total traffic info
+        total_traffic = sum(shares)
+        plt.figtext(0.5, 0.02, f'Total Traffic Analyzed: {total_traffic:.1f}%', 
+                   ha='center', fontsize=10, style='italic')
+        
+        chart_path = viz_dir / "market_share.png"
+        plt.savefig(chart_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        return str(chart_path)
+    
+    def _create_position_distribution_chart(self, position_dist: Dict[str, int], viz_dir: Path) -> str:
+        """Create position distribution bar chart"""
+        
+        plt.figure(figsize=(12, 8))
+        
+        positions = list(position_dist.keys())
+        counts = list(position_dist.values())
+        
+        # Create bars with gradient colors
+        bars = plt.bar(positions, counts, color=['#E74C3C', '#F39C12', '#F1C40F', '#2ECC71'])
+        
+        # Add value labels on bars
+        for bar in bars:
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2., height + max(counts)*0.01,
+                    f'{int(height):,}', ha='center', va='bottom', fontweight='bold')
+        
+        plt.title('Lenovo Keyword Position Distribution', fontsize=16, fontweight='bold', pad=20)
+        plt.xlabel('Position Range', fontsize=12, fontweight='bold')
+        plt.ylabel('Number of Keywords', fontsize=12, fontweight='bold')
+        
+        # Improve grid
+        plt.grid(axis='y', alpha=0.3, linestyle='--')
+        
+        # Add percentage labels
+        total_keywords = sum(counts)
+        if total_keywords > 0:
+            for i, (pos, count) in enumerate(zip(positions, counts)):
+                percentage = (count / total_keywords) * 100
+                plt.text(i, count + max(counts)*0.05, f'({percentage:.1f}%)', 
+                        ha='center', va='bottom', fontsize=10, style='italic')
+        
+        plt.tight_layout()
+        
+        chart_path = viz_dir / "position_distribution.png"
+        plt.savefig(chart_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        return str(chart_path)
+    
+    def _create_traffic_comparison_chart(self, traffic_comparison: Dict[str, float], viz_dir: Path) -> str:
+        """Create traffic comparison bar chart"""
+        
+        plt.figure(figsize=(10, 6))
+        
+        companies = list(traffic_comparison.keys())
+        traffic = list(traffic_comparison.values())
+        colors = ['#3498DB', '#E74C3C', '#2ECC71']
+        
+        bars = plt.bar(companies, traffic, color=colors)
+        
+        # Add value labels
+        for bar in bars:
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{height:.1f}%', ha='center', va='bottom', fontweight='bold')
+        
+        plt.title('Traffic Share Comparison', fontsize=16, fontweight='bold', pad=20)
+        plt.xlabel('Company', fontsize=12, fontweight='bold')
+        plt.ylabel('Traffic Share (%)', fontsize=12, fontweight='bold')
+        plt.grid(axis='y', alpha=0.3, linestyle='--')
+        
+        chart_path = viz_dir / "traffic_comparison.png"
+        plt.savefig(chart_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        return str(chart_path)
+    
+    def _create_opportunities_chart(self, opportunities: list, viz_dir: Path) -> str:
+        """Create opportunities scatter plot"""
+        
+        if not opportunities:
+            return ""
+        
+        plt.figure(figsize=(12, 8))
+        
+        # Extract data
+        volumes = [opp.get('Volume', 0) for opp in opportunities]
+        difficulties = [opp.get('Keyword Difficulty', 0) for opp in opportunities]
+        keywords = [opp.get('Keyword', '')[:20] + '...' if len(opp.get('Keyword', '')) > 20 else opp.get('Keyword', '') for opp in opportunities]
+        
+        # Create scatter plot
+        scatter = plt.scatter(difficulties, volumes, s=100, alpha=0.6, c=range(len(opportunities)), cmap='viridis')
+        
+        # Add labels for top opportunities
+        for i, (diff, vol, keyword) in enumerate(zip(difficulties[:10], volumes[:10], keywords[:10])):
+            plt.annotate(keyword, (diff, vol), xytext=(5, 5), textcoords='offset points', 
+                        fontsize=8, alpha=0.7)
+        
+        plt.title('SEO Opportunities: Volume vs Difficulty', fontsize=16, fontweight='bold', pad=20)
+        plt.xlabel('Keyword Difficulty', fontsize=12, fontweight='bold')
+        plt.ylabel('Search Volume', fontsize=12, fontweight='bold')
+        plt.grid(True, alpha=0.3)
+        
+        # Add ideal quadrant annotation
+        plt.axvline(x=30, color='red', linestyle='--', alpha=0.5)
+        plt.text(15, max(volumes)*0.9, 'Low Difficulty\n(Easier to Rank)', ha='center', 
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.5))
+        
+        chart_path = viz_dir / "opportunities_scatter.png"
+        plt.savefig(chart_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.close()
+        
+        return str(chart_path)
+    
     def _generate_html_report(self, results: Dict[str, Any]) -> str:
-        """Generate HTML report"""
+        """Generate enhanced HTML report"""
         
         summary = results.get('summary', {})
         competitive = results.get('competitive', {})
+        keyword_analysis = results.get('keyword_analysis', {})
+        opportunity_analysis = results.get('opportunity_analysis', {})
         
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>SEO Competitive Analysis Report</title>
+            <title>Enhanced SEO Competitive Analysis Report</title>
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                .header {{ background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }}
-                .section {{ margin: 30px 0; }}
-                .metric {{ background: #e8f5e8; padding: 15px; margin: 10px 0; border-radius: 5px; }}
-                .competitor {{ background: #fff3cd; padding: 15px; margin: 10px 0; border-radius: 5px; }}
+                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f8f9fa; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; }}
+                .section {{ background: white; margin: 20px 0; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                .metric {{ background: #e8f5e8; padding: 20px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #28a745; }}
+                .competitor {{ background: #fff3cd; padding: 20px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #ffc107; }}
+                .insight {{ background: #d1ecf1; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #17a2b8; }}
                 table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
                 th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
-                th {{ background-color: #f2f2f2; }}
+                th {{ background-color: #f2f2f2; font-weight: bold; }}
+                .highlight {{ background-color: #fff3cd; font-weight: bold; }}
+                .chart-container {{ text-align: center; margin: 20px 0; }}
+                h1, h2, h3 {{ color: #2c3e50; }}
+                .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }}
+                .stat-card {{ background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #dee2e6; }}
+                .stat-value {{ font-size: 24px; font-weight: bold; color: #007bff; }}
+                .stat-label {{ font-size: 14px; color: #6c757d; margin-top: 5px; }}
             </style>
         </head>
         <body>
             <div class="header">
-                <h1>SEO Competitive Analysis Report</h1>
-                <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-                <p>Analysis Period: May 19-21, 2025</p>
+                <h1>🚀 Enhanced SEO Competitive Intelligence Report</h1>
+                <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                <p><strong>Analysis Period:</strong> May 19-21, 2025</p>
+                <p><strong>Features:</strong> Core Analysis • Competitive Comparison • Opportunities • Visualizations</p>
             </div>
             
-            <div class="section">
-                <h2>Performance Summary</h2>
-                {self._create_summary_html(summary)}
-            </div>
-            
-            <div class="section">
-                <h2>Competitive Analysis</h2>
-                {self._create_competitive_html(competitive)}
-            </div>
+            {self._create_executive_summary_section(summary, competitive)}
+            {self._create_competitive_analysis_section(competitive)}
+            {self._create_keyword_analysis_section(keyword_analysis)}
+            {self._create_opportunity_section(opportunity_analysis)}
+            {self._create_recommendations_section(results)}
         </body>
         </html>
         """
         
-        report_path = self.reports_dir / "seo_analysis_report.html"
-        with open(report_path, 'w') as f:
+        report_path = self.reports_dir / "enhanced_seo_analysis_report.html"
+        with open(report_path, 'w', encoding='utf-8') as f:
             f.write(html)
         
         return str(report_path)
     
-    def _create_summary_html(self, summary: Dict[str, Any]) -> str:
-        """Create summary section HTML"""
+    def _create_executive_summary_section(self, summary: Dict[str, Any], competitive: Dict[str, Any]) -> str:
+        """Create executive summary section"""
         
-        html = ""
-        for company, metrics in summary.items():
-            if company == 'gap_keywords':
-                continue
-                
-            html += f"""
-            <div class="metric">
-                <h3>{company.title()}</h3>
-                <p><strong>Total Keywords:</strong> {metrics.get('total_keywords', 0):,}</p>
-                <p><strong>Average Position:</strong> {metrics.get('avg_position', 0):.1f}</p>
-                <p><strong>Total Traffic:</strong> {metrics.get('total_traffic', 0):.1f}%</p>
-                <p><strong>Top 10 Rankings:</strong> {metrics.get('top_10_count', 0):,}</p>
+        lenovo_data = summary.get('lenovo', {})
+        market_share = competitive.get('market_share', {})
+        
+        html = f"""
+        <div class="section">
+            <h2>📈 Executive Summary</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{lenovo_data.get('total_keywords', 0):,}</div>
+                    <div class="stat-label">Total Keywords</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{lenovo_data.get('avg_position', 0):.1f}</div>
+                    <div class="stat-label">Average Position</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{lenovo_data.get('total_traffic', 0):.1f}%</div>
+                    <div class="stat-label">Traffic Share</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{market_share.get('lenovo', 0):.1f}%</div>
+                    <div class="stat-label">Market Share</div>
+                </div>
             </div>
-            """
+        </div>
+        """
         
         return html
     
-    def _create_competitive_html(self, competitive: Dict[str, Any]) -> str:
-        """Create competitive analysis HTML"""
+    def _create_competitive_analysis_section(self, competitive: Dict[str, Any]) -> str:
+        """Create competitive analysis section"""
         
         market_share = competitive.get('market_share', {})
+        keyword_overlap = competitive.get('keyword_overlap', {})
         
-        html = "<h3>Market Share</h3>"
+        html = f"""
+        <div class="section">
+            <h2>🏆 Competitive Analysis</h2>
+            
+            <h3>Market Share Distribution</h3>
+        """
+        
         for company, share in market_share.items():
             html += f"""
             <div class="competitor">
-                <strong>{company.title()}:</strong> {share:.1f}%
+                <strong>{company.title()}:</strong> {share:.1f}% market share
             </div>
             """
+        
+        html += f"""
+            <h3>Keyword Overlap</h3>
+            <div class="stats-grid">
+        """
+        
+        for competitor, overlap in keyword_overlap.items():
+            html += f"""
+                <div class="stat-card">
+                    <div class="stat-value">{overlap:,}</div>
+                    <div class="stat-label">Shared with {competitor.title()}</div>
+                </div>
+            """
+        
+        html += "</div></div>"
+        return html
+    
+    def _create_keyword_analysis_section(self, keyword_analysis: Dict[str, Any]) -> str:
+        """Create keyword analysis section"""
+        
+        if not keyword_analysis:
+            return ""
+        
+        position_dist = keyword_analysis.get('position_distribution', {})
+        best_keywords = keyword_analysis.get('best_keywords', [])
+        
+        html = f"""
+        <div class="section">
+            <h2>🎯 Keyword Performance Analysis</h2>
+            
+            <h3>Position Distribution</h3>
+            <div class="stats-grid">
+        """
+        
+        for position_range, count in position_dist.items():
+            html += f"""
+                <div class="stat-card">
+                    <div class="stat-value">{count:,}</div>
+                    <div class="stat-label">{position_range.replace('_', ' ').title()}</div>
+                </div>
+            """
+        
+        html += "</div>"
+        
+        # Best performing keywords
+        if best_keywords:
+            html += """
+            <h3>Top Performing Keywords</h3>
+            <table>
+                <tr><th>Keyword</th><th>Position</th><th>Traffic (%)</th></tr>
+            """
+            
+            for keyword in best_keywords[:10]:
+                html += f"""
+                <tr>
+                    <td>{keyword.get('Keyword', '')}</td>
+                    <td>{keyword.get('Position', 0)}</td>
+                    <td>{keyword.get('Traffic (%)', 0):.2f}%</td>
+                </tr>
+                """
+            
+            html += "</table>"
+        
+        html += "</div>"
+        return html
+    
+    def _create_opportunity_section(self, opportunity_analysis: Dict[str, Any]) -> str:
+        """Create opportunity analysis section"""
+        
+        if not opportunity_analysis:
+            return ""
+        
+        opportunities = opportunity_analysis.get('high_value_opportunities', [])
+        total_gaps = opportunity_analysis.get('total_gap_keywords', 0)
+        
+        html = f"""
+        <div class="section">
+            <h2>💡 Opportunity Analysis</h2>
+            
+            <div class="metric">
+                <h3>🎯 Gap Keywords Identified: {total_gaps:,}</h3>
+                <p>High-value opportunities: {len(opportunities)}</p>
+            </div>
+        """
+        
+        if opportunities:
+            html += """
+            <h3>Top Opportunities</h3>
+            <table>
+                <tr><th>Keyword</th><th>Search Volume</th><th>Difficulty</th></tr>
+            """
+            
+            for opp in opportunities[:15]:
+                html += f"""
+                <tr>
+                    <td>{opp.get('Keyword', '')}</td>
+                    <td>{opp.get('Volume', 0):,}</td>
+                    <td>{opp.get('Keyword Difficulty', 0)}</td>
+                </tr>
+                """
+            
+            html += "</table>"
+        
+        html += "</div>"
+        return html
+    
+    def _create_recommendations_section(self, results: Dict[str, Any]) -> str:
+        """Create strategic recommendations section"""
+        
+        keyword_analysis = results.get('keyword_analysis', {})
+        opportunity_analysis = results.get('opportunity_analysis', {})
+        competitive = results.get('competitive', {})
+        
+        html = f"""
+        <div class="section">
+            <h2>💡 Strategic Recommendations</h2>
+            
+            <h3>Immediate Actions (0-30 days)</h3>
+        """
+        
+        # Generate recommendations based on analysis
+        recommendations = []
+        
+        # Position-based recommendations
+        position_dist = keyword_analysis.get('position_distribution', {})
+        if position_dist.get('top_20', 0) > position_dist.get('top_10', 0):
+            recommendations.append("Optimize keywords ranking 11-20 to reach page 1")
+        
+        # Opportunity-based recommendations
+        opportunities = opportunity_analysis.get('high_value_opportunities', [])
+        if len(opportunities) > 10:
+            recommendations.append(f"Target {len(opportunities)} high-value gap keywords")
+        
+        # Market share recommendations
+        market_share = competitive.get('market_share', {})
+        lenovo_share = market_share.get('lenovo', 0)
+        if lenovo_share < 40:
+            recommendations.append("Increase market share through competitive keyword targeting")
+        
+        for i, rec in enumerate(recommendations, 1):
+            html += f'<div class="insight">🚀 {i}. {rec}</div>'
+        
+        html += """
+            <h3>Medium-term Actions (1-3 months)</h3>
+            <div class="insight">📈 Develop content strategy for high-volume keywords</div>
+            <div class="insight">🎯 Improve SERP feature optimization</div>
+            <div class="insight">📊 Monitor competitive movements and respond accordingly</div>
+        </div>
+        """
         
         return html
     
     def _generate_json_report(self, results: Dict[str, Any]) -> str:
-        """Generate JSON report"""
+        """Generate comprehensive JSON report"""
         
-        report_path = self.reports_dir / "seo_analysis_data.json"
+        # Add metadata
+        enhanced_results = {
+            'metadata': {
+                'generated_at': datetime.now().isoformat(),
+                'analysis_period': 'May 19-21, 2025',
+                'report_version': '2.0',
+                'features': ['core_analysis', 'competitive_comparison', 'opportunities', 'visualizations']
+            },
+            'analysis_results': results
+        }
+        
+        report_path = self.reports_dir / "enhanced_seo_analysis_data.json"
         
         with open(report_path, 'w') as f:
-            json.dump(results, f, indent=2, default=str)
+            json.dump(enhanced_results, f, indent=2, default=str)
         
         return str(report_path)
     
     def _generate_excel_report(self, results: Dict[str, Any]) -> str:
-        """Generate Excel report"""
+        """Generate comprehensive Excel report"""
         
-        # Simple Excel export would go here
-        # For now, just create a placeholder
-        report_path = self.reports_dir / "seo_analysis_data.xlsx"
+        report_path = self.reports_dir / "enhanced_seo_analysis_data.xlsx"
         
-        # Could use pandas.ExcelWriter for real implementation
-        with open(report_path, 'w') as f:
-            f.write("Excel report placeholder")
+        try:
+            with pd.ExcelWriter(report_path, engine='openpyxl') as writer:
+                # Summary sheet
+                summary_data = results.get('summary', {})
+                if summary_data:
+                    summary_df = pd.DataFrame.from_dict(summary_data, orient='index')
+                    summary_df.to_excel(writer, sheet_name='Summary', index=True)
+                
+                # Competitive analysis sheet
+                competitive_data = results.get('competitive', {})
+                if competitive_data:
+                    # Market share
+                    market_share_df = pd.DataFrame(list(competitive_data.get('market_share', {}).items()), 
+                                                 columns=['Company', 'Market_Share'])
+                    market_share_df.to_excel(writer, sheet_name='Market_Share', index=False)
+                    
+                    # Traffic comparison
+                    traffic_df = pd.DataFrame(list(competitive_data.get('traffic_comparison', {}).items()), 
+                                            columns=['Company', 'Traffic_Share'])
+                    traffic_df.to_excel(writer, sheet_name='Traffic_Comparison', index=False)
+                
+                # Keyword analysis
+                keyword_analysis = results.get('keyword_analysis', {})
+                if keyword_analysis:
+                    # Position distribution
+                    position_df = pd.DataFrame(list(keyword_analysis.get('position_distribution', {}).items()), 
+                                             columns=['Position_Range', 'Keyword_Count'])
+                    position_df.to_excel(writer, sheet_name='Position_Distribution', index=False)
+                    
+                    # Best keywords
+                    best_keywords = keyword_analysis.get('best_keywords', [])
+                    if best_keywords:
+                        best_df = pd.DataFrame(best_keywords)
+                        best_df.to_excel(writer, sheet_name='Best_Keywords', index=False)
+                
+                # Opportunities
+                opportunity_analysis = results.get('opportunity_analysis', {})
+                opportunities = opportunity_analysis.get('high_value_opportunities', [])
+                if opportunities:
+                    opp_df = pd.DataFrame(opportunities)
+                    opp_df.to_excel(writer, sheet_name='Opportunities', index=False)
+                
+                # Metadata sheet
+                metadata_df = pd.DataFrame([{
+                    'Generated_At': datetime.now(),
+                    'Analysis_Period': 'May 19-21, 2025',
+                    'Report_Version': '2.0',
+                    'Total_Sheets': len(writer.sheets)
+                }])
+                metadata_df.to_excel(writer, sheet_name='Metadata', index=False)
+        
+        except Exception as e:
+            print(f"⚠️ Error generating Excel report: {e}")
+            # Create simple text file as fallback
+            with open(report_path.with_suffix('.txt'), 'w') as f:
+                f.write(f"Excel Report Generation Failed: {e}\n")
+                f.write(f"Data: {json.dumps(results, indent=2, default=str)}")
+            return str(report_path.with_suffix('.txt'))
         
         return str(report_path)
