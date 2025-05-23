@@ -49,8 +49,11 @@ pipelines:
 
 # Data configuration
 data:
-  input_directories: ["data"]
+  input_directories:
+    - "data"
+    - "data/May-*-2025"  # Add date-based directories
   output_directory: "reports"
+  date_folder_pattern: "data/{month}-{day}-{year}"  # Add this line
   file_patterns:
     positions: "*-organic.Positions-*.xlsx"
     competitors: "*-organic.Competitors-*.xlsx"
@@ -58,6 +61,11 @@ data:
   date_range_days: 7
   include_competitors: ["dell", "hp"]
   data_quality_threshold: 0.7
+  # Add date format mapping
+  date_formats:
+    - "%b-%d-%Y"  # May-19-2025 format
+    - "%Y-%m-%d"  # Standard format
+    - "%m-%d-%Y"  # Alternative format
 
 # Analysis configuration
 analysis:
