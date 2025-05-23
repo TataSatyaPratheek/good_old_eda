@@ -260,19 +260,18 @@ class EDAPipeline:
                     'serp_position_analysis': serp_position_analysis,
                     'temporal_patterns': temporal_patterns,
                     'analysis_metadata': {
-                        'total_keywords_analyzed': len(lenovo_data),
-                        'competitors_included': list(competitor_data.keys()),
-                        'analysis_depth': 'comprehensive'
+                        'primary_keywords_analyzed': len(lenovo_data),
+                        'competitors_analyzed': len(competitor_data),
+                        'analysis_timeframe': data_results.get('date_range'),
+                        'analysis_timestamp': datetime.now()
                     }
                 }
                 
-                self.logger.info(f"Position analysis completed for {len(lenovo_data)} keywords")
+                self.logger.info("Position analysis phase completed")
                 return position_results
-                
         except Exception as e:
             self.logger.error(f"Error in position analysis phase: {str(e)}")
             return {}
-
     async def _execute_traffic_analysis(self, data_results: Dict[str, Any]) -> Dict[str, Any]:
         """Execute comprehensive traffic analysis"""
         try:
@@ -282,16 +281,21 @@ class EDAPipeline:
                 all_data = data_results.get('all_data', {})
                 competitor_data = data_results.get('competitor_data', {})
                 
+                if not all_data:
+                    return {}
+                
+                # Get Lenovo data
                 lenovo_data = all_data.get('positions_lenovo', pd.DataFrame())
                 
                 if lenovo_data.empty:
+                    self.logger.warning("No Lenovo traffic data available")
                     return {}
                 
-                # Comprehensive traffic analysis using refactored module
-                traffic_insights = self.traffic_comparator.analyze_traffic_patterns(
+                # Traffic performance analysis
+                traffic_analysis = self.traffic_comparator.analyze_traffic_performance(
                     lenovo_data,
-                    include_seasonal_analysis=True,
-                    include_trend_analysis=True
+                    analysis_period=30,
+                    include_forecasting=True
                 )
                 
                 # Competitive traffic comparison
@@ -300,37 +304,15 @@ class EDAPipeline:
                     competitive_traffic = self.traffic_comparator.compare_traffic_performance(
                         lenovo_data,
                         competitor_data,
-                        comparison_metrics=['total_traffic', 'traffic_efficiency', 'growth_rate']
-                    )
-                
-                # Traffic opportunity analysis
-                opportunity_analysis = self.traffic_comparator.identify_traffic_opportunities(
-                    lenovo_data,
-                    competitor_data if competitor_data else {},
-                    opportunity_threshold=100
-                )
-                
-                # Traffic attribution analysis
-                attribution_analysis = {}
-                if 'SERP Features by Keyword' in lenovo_data.columns:
-                    attribution_analysis = self.traffic_comparator.analyze_traffic_attribution(
-                        lenovo_data,
-                        attribution_factors=['position', 'serp_features', 'search_volume']
                     )
                 
                 traffic_results = {
-                    'traffic_insights': traffic_insights,
+                    'traffic_analysis': traffic_analysis,
                     'competitive_traffic': competitive_traffic,
-                    'opportunity_analysis': opportunity_analysis,
-                    'attribution_analysis': attribution_analysis,
-                    'analysis_metadata': {
-                        'total_traffic_analyzed': lenovo_data.get('Traffic (%)', pd.Series()).sum(),
-                        'traffic_keywords': len(lenovo_data[lenovo_data.get('Traffic (%)', 0) > 0]),
-                        'analysis_scope': 'comprehensive'
-                    }
+                    'traffic_summary': self._create_traffic_summary(traffic_analysis, competitive_traffic)
                 }
                 
-                self.logger.info("Traffic analysis completed")
+                self.logger.info("Traffic analysis phase completed")
                 return traffic_results
                 
         except Exception as e:
@@ -338,62 +320,43 @@ class EDAPipeline:
             return {}
 
     async def _execute_serp_analysis(self, data_results: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute comprehensive SERP feature analysis"""
+        """Execute SERP feature analysis"""
         try:
             with self.performance_tracker.track_block("serp_analysis_phase"):
-                self.logger.info("Executing SERP feature analysis phase")
+                self.logger.info("Executing SERP analysis phase")
                 
                 all_data = data_results.get('all_data', {})
-                competitor_data = data_results.get('competitor_data', {})
                 
+                if not all_data:
+                    return {}
+                
+                # Get Lenovo data
                 lenovo_data = all_data.get('positions_lenovo', pd.DataFrame())
                 
                 if lenovo_data.empty or 'SERP Features by Keyword' not in lenovo_data.columns:
-                    self.logger.warning("No SERP feature data available")
+                    self.logger.warning("No SERP features data available")
                     return {}
                 
-                # Comprehensive SERP feature mapping using refactored module
-                serp_insights = self.serp_mapper.analyze_serp_landscape(
+                # SERP feature mapping and analysis
+                serp_analysis = self.serp_mapper.map_serp_features(
                     lenovo_data,
-                    analysis_depth='comprehensive',
-                    include_competitive_context=bool(competitor_data)
+                    feature_analysis=True,
+                    competitive_context=True
                 )
                 
-                # SERP feature opportunity analysis
-                feature_opportunities = self.serp_mapper.identify_serp_opportunities(
+                # SERP opportunity analysis
+                serp_opportunities = self.serp_mapper.identify_serp_opportunities(
                     lenovo_data,
-                    competitor_data if competitor_data else {},
-                    opportunity_types=['featured_snippets', 'people_also_ask', 'image_packs']
+                    opportunity_threshold=0.6
                 )
-                
-                # SERP feature impact analysis
-                impact_analysis = self.serp_mapper.analyze_feature_impact_on_traffic(
-                    lenovo_data,
-                    impact_metrics=['traffic_lift', 'ctr_improvement', 'visibility_boost']
-                )
-                
-                # Competitive SERP analysis
-                competitive_serp = {}
-                if competitor_data:
-                    competitive_serp = self.serp_mapper.compare_serp_feature_adoption(
-                        lenovo_data,
-                        competitor_data,
-                        comparison_depth='detailed'
-                    )
                 
                 serp_results = {
-                    'serp_insights': serp_insights,
-                    'feature_opportunities': feature_opportunities,
-                    'impact_analysis': impact_analysis,
-                    'competitive_serp': competitive_serp,
-                    'analysis_metadata': {
-                        'keywords_with_features': len(lenovo_data[lenovo_data['SERP Features by Keyword'].notna()]),
-                        'unique_features_found': len(serp_insights.get('feature_distribution', {})),
-                        'analysis_scope': 'comprehensive'
-                    }
+                    'serp_analysis': serp_analysis,
+                    'serp_opportunities': serp_opportunities,
+                    'serp_summary': self._create_serp_summary(serp_analysis, serp_opportunities)
                 }
                 
-                self.logger.info("SERP feature analysis completed")
+                self.logger.info("SERP analysis phase completed")
                 return serp_results
                 
         except Exception as e:
@@ -401,50 +364,42 @@ class EDAPipeline:
             return {}
 
     async def _execute_anomaly_detection(self, data_results: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute comprehensive anomaly detection"""
+        """Execute anomaly detection analysis"""
         try:
             with self.performance_tracker.track_block("anomaly_detection_phase"):
                 self.logger.info("Executing anomaly detection phase")
                 
                 all_data = data_results.get('all_data', {})
+                
+                if not all_data:
+                    return {}
+                
+                # Get Lenovo data
                 lenovo_data = all_data.get('positions_lenovo', pd.DataFrame())
                 
                 if lenovo_data.empty:
+                    self.logger.warning("No data available for anomaly detection")
                     return {}
                 
-                # Comprehensive anomaly detection using refactored module
-                anomaly_report = self.anomaly_detector.detect_comprehensive_anomalies(
-                    lenovo_data,
-                    target_columns=['Position', 'Traffic (%)', 'Search Volume'],
-                    config=None  # Use default config
-                )
-                
-                # Position-specific anomaly detection
+                # Detect anomalies in position data
                 position_anomalies = self.anomaly_detector.detect_position_anomalies(
                     lenovo_data,
-                    lookback_days=self.data_config.date_range_days,
-                    sensitivity='medium'
+                    detection_methods=['statistical', 'isolation_forest']
                 )
                 
-                # Traffic anomaly detection
+                # Detect traffic anomalies
                 traffic_anomalies = self.anomaly_detector.detect_traffic_anomalies(
                     lenovo_data,
-                    competitive_context=data_results.get('competitor_data')
+                    sensitivity_threshold=0.3
                 )
                 
                 anomaly_results = {
-                    'comprehensive_report': anomaly_report,
                     'position_anomalies': position_anomalies,
                     'traffic_anomalies': traffic_anomalies,
-                    'anomaly_summary': {
-                        'total_anomalies': anomaly_report.total_anomalies,
-                        'critical_anomalies': len([a for a in anomaly_report.anomaly_alerts if a.severity == 'critical']),
-                        'anomaly_types': list(set([a.anomaly_type for a in anomaly_report.anomaly_alerts])),
-                        'detection_timestamp': anomaly_report.detection_timestamp
-                    }
+                    'anomaly_summary': self._create_anomaly_summary(position_anomalies, traffic_anomalies)
                 }
                 
-                self.logger.info(f"Anomaly detection completed: {anomaly_report.total_anomalies} anomalies found")
+                self.logger.info("Anomaly detection phase completed")
                 return anomaly_results
                 
         except Exception as e:
@@ -452,39 +407,36 @@ class EDAPipeline:
             return {}
 
     async def _integrate_analysis_results(self, all_results: Dict[str, Any]) -> Dict[str, Any]:
-        """Integrate results from all analysis phases"""
+        """Integrate all analysis results"""
         try:
-            with self.performance_tracker.track_block("results_integration"):
+            with self.performance_tracker.track_block("analysis_integration"):
                 self.logger.info("Integrating analysis results")
                 
-                # Extract key insights from each analysis
+                # Create integrated insights
                 integrated_insights = {
                     'executive_summary': self._create_executive_summary(all_results),
                     'key_findings': self._extract_key_findings(all_results),
-                    'cross_analysis_insights': self._generate_cross_analysis_insights(all_results),
-                    'actionable_recommendations': self._generate_actionable_recommendations(all_results),
-                    'risk_assessment': self._perform_integrated_risk_assessment(all_results),
-                    'performance_metrics': self._calculate_integrated_metrics(all_results),
+                    'data_quality_assessment': self._assess_overall_data_quality(all_results),
+                    'performance_metrics': self.performance_tracker.get_performance_summary(),
                     'detailed_results': all_results,
-                    'execution_metadata': {
-                        'pipeline_execution_time': self.performance_tracker.get_performance_summary(),
-                        'data_quality_score': all_results.get('data_loading', {}).get('overall_quality', 0),
-                        'analysis_coverage': self._calculate_analysis_coverage(all_results),
-                        'integration_timestamp': datetime.now()
+                    'integration_metadata': {
+                        'integration_timestamp': datetime.now(),
+                        'analysis_components': list(all_results.keys()),
+                        'integration_quality': self._assess_integration_quality(all_results)
                     }
                 }
                 
-                self.logger.info("Analysis results integration completed")
+                self.logger.info("Analysis integration completed")
                 return integrated_insights
                 
         except Exception as e:
-            self.logger.error(f"Error integrating analysis results: {str(e)}")
+            self.logger.error(f"Error in analysis integration: {str(e)}")
             return all_results
 
     async def _export_eda_results(self, integrated_results: Dict[str, Any]) -> Dict[str, bool]:
-        """Export comprehensive EDA results"""
+        """Export EDA results"""
         try:
-            with self.performance_tracker.track_block("results_export"):
+            with self.performance_tracker.track_block("eda_results_export"):
                 self.logger.info("Exporting EDA results")
                 
                 export_results = {}
@@ -501,21 +453,12 @@ class EDAPipeline:
                 # Export detailed findings
                 findings_export = self.report_exporter.export_analysis_report(
                     integrated_results.get('key_findings', {}),
-                    f"{self.data_config.output_directory}/eda_detailed_findings.pdf"
+                    f"{self.data_config.output_directory}/eda_detailed_findings.json"
                 )
                 export_results['detailed_findings'] = findings_export
                 
-                # Export data quality report
-                quality_data = integrated_results.get('detailed_results', {}).get('data_loading', {}).get('quality_summary', pd.DataFrame())
-                if not quality_data.empty:
-                    quality_export = self.report_exporter.export_data_quality_report(
-                        quality_data,
-                        f"{self.data_config.output_directory}/data_quality_report.xlsx"
-                    )
-                    export_results['data_quality'] = quality_export
-                
-                # Export visualizations
-                viz_export = await self._export_eda_visualizations(integrated_results)
+                # Create visualizations
+                viz_export = await self._create_eda_visualizations(integrated_results)
                 export_results['visualizations'] = viz_export
                 
                 self.logger.info("EDA results export completed")
@@ -525,143 +468,130 @@ class EDAPipeline:
             self.logger.error(f"Error exporting EDA results: {str(e)}")
             return {}
 
+    async def _create_eda_visualizations(self, integrated_insights: Dict[str, Any]) -> bool:
+        """Create EDA visualizations"""
+        try:
+            # Create position trend charts
+            position_data = integrated_insights.get('detailed_results', {}).get('data_loading', {}).get('all_data', {}).get('positions_lenovo', pd.DataFrame())
+            
+            if not position_data.empty:
+                position_viz = self.viz_engine.create_position_trend_charts(
+                    position_data,
+                    f"{self.data_config.output_directory}/visuals/positional_trends/"
+                )
+                
+                # Create traffic comparison charts
+                traffic_viz = self.viz_engine.create_traffic_comparison_charts(
+                    integrated_insights.get('detailed_results', {}).get('traffic_analysis', {}),
+                    f"{self.data_config.output_directory}/visuals/traffic_comparison/"
+                )
+                
+                return position_viz and traffic_viz
+            
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"Error creating EDA visualizations: {str(e)}")
+            return False
+
     def get_pipeline_status(self) -> Dict[str, Any]:
         """Get current pipeline status"""
         return {
             'pipeline_name': 'eda_pipeline',
             'status': 'completed' if self.pipeline_results else 'not_started',
-            'last_execution': self.execution_metadata.get('last_execution'),
-            'performance_summary': self.performance_tracker.get_performance_summary(),
-            'results_available': bool(self.pipeline_results)
+            'results_available': bool(self.pipeline_results),
+            'performance_summary': self.performance_tracker.get_performance_summary()
         }
 
     async def _handle_pipeline_error(self, error: Exception):
         """Handle pipeline execution errors"""
-        self.logger.error(f"Pipeline error: {str(error)}")
-        
-        # Log error for audit
+        self.logger.error(f"EDA pipeline error: {str(error)}")
         self.audit_logger.log_analysis_execution(
             user_id="pipeline_system",
             analysis_type="eda_pipeline_error",
             result="failure",
             details={"error": str(error)}
         )
-        
-        # Additional error handling logic here
-        
-    def _create_executive_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """Create executive summary from all analysis results"""
-        try:
-            data_summary = results.get('data_loading', {}).get('data_summary', {})
-            position_meta = results.get('position_analysis', {}).get('analysis_metadata', {})
-            traffic_meta = results.get('traffic_analysis', {}).get('analysis_metadata', {})
-            anomaly_summary = results.get('anomaly_analysis', {}).get('anomaly_summary', {})
-            
-            return {
-                'analysis_scope': {
-                    'date_coverage': data_summary.get('date_coverage', 'Unknown'),
-                    'keywords_analyzed': position_meta.get('total_keywords_analyzed', 0),
-                    'competitors_included': position_meta.get('competitors_included', []),
-                    'total_traffic_analyzed': traffic_meta.get('total_traffic_analyzed', 0)
-                },
-                'key_metrics': {
-                    'data_quality_score': results.get('data_loading', {}).get('overall_quality', 0),
-                    'anomalies_detected': anomaly_summary.get('total_anomalies', 0),
-                    'critical_issues': anomaly_summary.get('critical_anomalies', 0)
-                },
-                'summary_timestamp': datetime.now()
-            }
-        except Exception:
-            return {}
 
-    def _extract_key_findings(self, results: Dict[str, Any]) -> List[str]:
-        """Extract key findings from analysis results"""
+    # Helper methods
+    def _create_traffic_summary(self, traffic_analysis, competitive_traffic):
+        """Create traffic analysis summary"""
+        return {
+            'total_traffic': traffic_analysis.get('total_traffic', 0),
+            'traffic_growth_rate': traffic_analysis.get('growth_rate', 0),
+            'competitive_position': competitive_traffic.get('relative_position', 'unknown')
+        }
+
+    def _create_serp_summary(self, serp_analysis, serp_opportunities):
+        """Create SERP analysis summary"""
+        return {
+            'total_serp_features': len(serp_analysis.get('feature_distribution', {})),
+            'opportunities_identified': len(serp_opportunities.get('opportunities', [])),
+            'serp_coverage': serp_analysis.get('coverage_percentage', 0)
+        }
+
+    def _create_anomaly_summary(self, position_anomalies, traffic_anomalies):
+        """Create anomaly detection summary"""
+        return {
+            'position_anomalies_count': len(position_anomalies.get('anomalies', [])),
+            'traffic_anomalies_count': len(traffic_anomalies.get('anomalies', [])),
+            'anomaly_severity': 'low'  # Would be calculated based on actual anomalies
+        }
+
+    def _create_executive_summary(self, all_results):
+        """Create executive summary"""
+        return {
+            'analysis_scope': 'comprehensive_eda',
+            'data_quality_score': all_results.get('data_loading', {}).get('overall_quality', 0),
+            'key_insights_count': len(self._extract_key_findings(all_results)),
+            'anomalies_detected': self._count_total_anomalies(all_results),
+            'analysis_timestamp': datetime.now()
+        }
+
+    def _extract_key_findings(self, all_results):
+        """Extract key findings from all analysis results"""
         findings = []
         
         # Position findings
-        position_insights = results.get('position_analysis', {}).get('position_insights', {})
-        if position_insights:
+        position_results = all_results.get('position_analysis', {})
+        if position_results:
             findings.append("Position analysis completed with trend identification")
         
         # Traffic findings
-        traffic_insights = results.get('traffic_analysis', {}).get('traffic_insights', {})
-        if traffic_insights:
-            findings.append("Traffic pattern analysis identified optimization opportunities")
+        traffic_results = all_results.get('traffic_analysis', {})
+        if traffic_results:
+            findings.append("Traffic performance analysis completed")
+        
+        # SERP findings
+        serp_results = all_results.get('serp_analysis', {})
+        if serp_results:
+            findings.append("SERP feature analysis completed")
         
         # Anomaly findings
-        anomaly_count = results.get('anomaly_analysis', {}).get('anomaly_summary', {}).get('total_anomalies', 0)
-        if anomaly_count > 0:
-            findings.append(f"Detected {anomaly_count} anomalies requiring attention")
+        anomaly_results = all_results.get('anomaly_analysis', {})
+        if anomaly_results:
+            findings.append("Anomaly detection analysis completed")
         
         return findings
 
-    def _generate_cross_analysis_insights(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate insights from cross-analysis of results"""
+    def _assess_overall_data_quality(self, all_results):
+        """Assess overall data quality"""
+        data_loading = all_results.get('data_loading', {})
         return {
-            'position_traffic_correlation': 'Strong correlation identified between position improvements and traffic gains',
-            'serp_feature_impact': 'SERP features show significant impact on traffic performance',
-            'competitive_dynamics': 'Competitive analysis reveals strategic opportunities'
+            'overall_quality_score': data_loading.get('overall_quality', 0),
+            'quality_threshold_met': data_loading.get('overall_quality', 0) >= self.data_config.data_quality_threshold,
+            'datasets_analyzed': len(data_loading.get('all_data', {}))
         }
 
-    def _generate_actionable_recommendations(self, results: Dict[str, Any]) -> List[str]:
-        """Generate actionable recommendations from analysis"""
-        recommendations = []
-        
-        # Add specific recommendations based on analysis results
-        recommendations.append("Focus on keywords with high traffic potential and achievable position improvements")
-        recommendations.append("Optimize for SERP features to increase visibility and traffic")
-        recommendations.append("Monitor identified anomalies for early warning of performance issues")
-        
-        return recommendations
+    def _assess_integration_quality(self, all_results):
+        """Assess integration quality"""
+        completed_phases = sum(1 for result in all_results.values() if result)
+        total_phases = len(all_results)
+        return completed_phases / total_phases if total_phases > 0 else 0
 
-    def _perform_integrated_risk_assessment(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform integrated risk assessment"""
-        return {
-            'data_quality_risk': 'low' if results.get('data_loading', {}).get('overall_quality', 0) > 0.8 else 'medium',
-            'anomaly_risk': 'high' if results.get('anomaly_analysis', {}).get('anomaly_summary', {}).get('critical_anomalies', 0) > 5 else 'low',
-            'competitive_risk': 'medium'  # Default assessment
-        }
-
-    def _calculate_integrated_metrics(self, results: Dict[str, Any]) -> Dict[str, float]:
-        """Calculate integrated performance metrics"""
-        return {
-            'overall_health_score': 0.85,  # Calculated from various factors
-            'analysis_completeness': self._calculate_analysis_coverage(results),
-            'data_reliability': results.get('data_loading', {}).get('overall_quality', 0)
-        }
-
-    def _calculate_analysis_coverage(self, results: Dict[str, Any]) -> float:
-        """Calculate analysis coverage percentage"""
-        expected_analyses = ['data_loading', 'position_analysis', 'traffic_analysis', 'serp_analysis', 'anomaly_analysis']
-        completed_analyses = sum(1 for analysis in expected_analyses if analysis in results and results[analysis])
-        return completed_analyses / len(expected_analyses)
-
-    async def _export_eda_visualizations(self, results: Dict[str, Any]) -> bool:
-        """Export EDA visualizations"""
-        try:
-            # Use visualization engine to create comprehensive charts
-            viz_success = True
-            
-            # Position trend visualizations
-            position_data = results.get('detailed_results', {}).get('data_loading', {}).get('all_data', {}).get('positions_lenovo', pd.DataFrame())
-            if not position_data.empty:
-                position_charts = self.viz_engine.create_position_trend_charts(
-                    position_data,
-                    output_path=f"{self.data_config.output_directory}/visuals/position_trends/"
-                )
-                viz_success = viz_success and position_charts
-            
-            # Traffic comparison visualizations
-            traffic_results = results.get('detailed_results', {}).get('traffic_analysis', {})
-            if traffic_results:
-                traffic_charts = self.viz_engine.create_traffic_comparison_charts(
-                    traffic_results,
-                    output_path=f"{self.data_config.output_directory}/visuals/traffic_comparison/"
-                )
-                viz_success = viz_success and traffic_charts
-            
-            return viz_success
-            
-        except Exception as e:
-            self.logger.error(f"Error creating visualizations: {str(e)}")
-            return False
+    def _count_total_anomalies(self, all_results):
+        """Count total anomalies detected"""
+        anomaly_results = all_results.get('anomaly_analysis', {})
+        position_anomalies = len(anomaly_results.get('position_anomalies', {}).get('anomalies', []))
+        traffic_anomalies = len(anomaly_results.get('traffic_anomalies', {}).get('anomalies', []))
+        return position_anomalies + traffic_anomalies

@@ -31,70 +31,94 @@ class StatisticalCalculator:
 
     def calculate_descriptive_statistics(
         self,
-        data: Union[pd.Series, np.ndarray, List[float]],
+        input_data: Union[pd.Series, np.ndarray, List[float]],
         include_advanced: bool = True
     ) -> Dict[str, float]:
         """
         Calculate comprehensive descriptive statistics.
         
         Args:
-            data: Input data
+            input_data: Input data
             include_advanced: Whether to include advanced statistics
             
         Returns:
             Dictionary of statistical measures
         """
         try:
-            if isinstance(data, list):
-                data = np.array(data)
-            elif isinstance(data, pd.Series):
-                data = data.dropna().values
+            num_nans = 0
+            data_for_stats: np.ndarray
 
-            if len(data) == 0:
+            if isinstance(input_data, list):
+                current_data_arr = np.array(input_data, dtype=float) # Ensure float for np.nan
+                num_nans = np.sum(np.isnan(current_data_arr))
+                data_for_stats = current_data_arr[~np.isnan(current_data_arr)]
+            elif isinstance(input_data, pd.Series):
+                num_nans = input_data.isnull().sum()
+                data_for_stats = input_data.dropna().values
+            elif isinstance(input_data, np.ndarray):
+                current_data_arr = input_data.astype(float) # Ensure float for np.nan
+                if current_data_arr.ndim > 1:
+                    self.logger.warning(
+                        "Input np.ndarray is not 1D. Flattening the array."
+                    )
+                    current_data_arr = current_data_arr.flatten()
+                num_nans = np.sum(np.isnan(current_data_arr))
+                data_for_stats = current_data_arr[~np.isnan(current_data_arr)]
+            else:
+                self.logger.error(f"Unsupported data type for descriptive statistics: {type(input_data)}")
                 return {}
+
+            if len(data_for_stats) == 0:
+                return {'count': 0, 'null_count': num_nans}
 
             # Basic statistics
             stats_dict = {
-                'count': len(data),
-                'mean': np.mean(data),
-                'median': np.median(data),
-                'std': np.std(data, ddof=1),
-                'variance': np.var(data, ddof=1),
-                'min': np.min(data),
-                'max': np.max(data),
-                'range': np.max(data) - np.min(data),
-                'q25': np.percentile(data, 25),
-                'q75': np.percentile(data, 75),
-                'iqr': np.percentile(data, 75) - np.percentile(data, 25)
+                'count': len(data_for_stats),
+                'null_count': num_nans,
+                'mean': np.mean(data_for_stats),
+                'median': np.median(data_for_stats),
+                'std': np.std(data_for_stats, ddof=1) if len(data_for_stats) >= 2 else np.nan,
+                'variance': np.var(data_for_stats, ddof=1) if len(data_for_stats) >= 2 else np.nan,
+                'min': np.min(data_for_stats),
+                'max': np.max(data_for_stats),
+                'range': np.max(data_for_stats) - np.min(data_for_stats),
+                'q25': np.percentile(data_for_stats, 25),
+                'q75': np.percentile(data_for_stats, 75),
+                'iqr': np.percentile(data_for_stats, 75) - np.percentile(data_for_stats, 25)
             }
 
-            # Add simple statistics for compatibility (from paste file)
-            if isinstance(data, np.ndarray):
-                data_series = pd.Series(data)
-            else:
-                data_series = data
-            
+            # Coefficient of Variation
+            mean_val = stats_dict['mean']
+            std_val = stats_dict['std']
+            cv = np.nan
+            if not (pd.isna(mean_val) or pd.isna(std_val)):
+                if mean_val != 0:
+                    cv = std_val / abs(mean_val)
+                elif std_val == 0:  # Mean is 0, Std is 0
+                    cv = 0.0
+                else:  # Mean is 0, Std is > 0
+                    cv = np.inf
+
             stats_dict.update({
-                'null_count': pd.isnull(data_series).sum() if hasattr(data_series, 'isnull') else 0,
                 'q1': stats_dict['q25'],  # Alias for compatibility
                 'q3': stats_dict['q75'],  # Alias for compatibility
-                'cv': stats_dict['std'] / abs(stats_dict['mean']) if stats_dict['mean'] != 0 else 0
+                'cv': cv  # For compatibility
             })
 
             if include_advanced:
                 # Advanced statistics
                 stats_dict.update({
-                    'skewness': stats.skew(data),
-                    'kurtosis': stats.kurtosis(data),
-                    'coefficient_of_variation': stats_dict['std'] / abs(stats_dict['mean']) if stats_dict['mean'] != 0 else np.inf,
-                    'mad': np.median(np.abs(data - stats_dict['median'])),  # Median Absolute Deviation
-                    'harmonic_mean': stats.hmean(data[data > 0]) if np.any(data > 0) else 0,
-                    'geometric_mean': stats.gmean(data[data > 0]) if np.any(data > 0) else 0,
-                    'trim_mean_10': stats.trim_mean(data, 0.1),
-                    'mode': stats.mode(data, keepdims=True).mode[0] if len(data) > 0 else np.nan,
-                    'entropy': self._calculate_entropy(data),
+                    'skewness': stats.skew(data_for_stats) if len(data_for_stats) >= 3 else np.nan,
+                    'kurtosis': stats.kurtosis(data_for_stats) if len(data_for_stats) >= 4 else np.nan, # Fisher kurtosis (default)
+                    'coefficient_of_variation': cv,
+                    'mad': np.median(np.abs(data_for_stats - stats_dict['median'])),  # Median Absolute Deviation
+                    'harmonic_mean': stats.hmean(data_for_stats[data_for_stats > 0]) if np.any(data_for_stats > 0) else 0,
+                    'geometric_mean': stats.gmean(data_for_stats[data_for_stats > 0]) if np.any(data_for_stats > 0) else 0,
+                    'trim_mean_10': stats.trim_mean(data_for_stats, 0.1) if len(data_for_stats) > 0 else np.nan,
+                    'mode': stats.mode(data_for_stats, keepdims=True).mode[0] if len(data_for_stats) > 0 else np.nan,
+                    'entropy': self._calculate_entropy(data_for_stats),
                     # Aliases for paste file compatibility
-                    'skew': stats.skew(data),
+                    'skew': stats_dict['skewness'],
                 })
 
             return stats_dict
@@ -224,15 +248,13 @@ class StatisticalCalculator:
 
     def calculate_trend_strength(
         self,
-        data: pd.Series,
-        dates: Optional[pd.Series] = None
+        data: pd.Series
     ) -> Dict[str, Any]:
         """
         Calculate trend strength and direction (from paste file)
         
         Args:
             data: Time series data
-            dates: Optional date series
             
         Returns:
             Dictionary with trend analysis
@@ -350,7 +372,7 @@ class StatisticalCalculator:
         Args:
             sample1: First sample
             sample2: Second sample (for two-sample tests)
-            test_type: Type of test ('ttest', 'mannwhitney', 'wilcoxon', 'chi2')
+            test_type: Type of test ('ttest', 'mannwhitney', 'wilcoxon')
             alternative: Alternative hypothesis
             alpha: Significance level
             expected_value: Expected value for one-sample tests
@@ -412,6 +434,9 @@ class StatisticalCalculator:
                     'significant': p_value < alpha
                 })
 
+            elif test_type == 'chi2':
+                raise ValueError("Chi-squared test ('chi2') is not implemented in this method.")
+
             return results
 
         except Exception as e:
@@ -430,6 +455,25 @@ class StatisticalCalculator:
         except Exception:
             return 0.0
 
+    def normalize_value(self, value: float, min_val: float, max_val: float) -> float:
+        """
+        Normalize a value to 0-1 range
+        
+        Args:
+            value: Value to normalize
+            min_val: Minimum value in range
+            max_val: Maximum value in range
+            
+        Returns:
+            Normalized value between 0 and 1
+        """
+        try:
+            if max_val == min_val:
+                return 0.0 if value == min_val else np.nan # Or 0.5, or raise error
+            return (value - min_val) / (max_val - min_val)
+        except Exception as e:
+            self.logger.error(f"Error normalizing value: {str(e)}")
+            return np.nan # Return NaN on error
 
 class OptimizationHelper:
     """
@@ -583,7 +627,7 @@ class OptimizationHelper:
         
         except Exception as e:
             self.logger.error(f"Error calculating Pareto frontier: {str(e)}")
-            return list(range(min(5, len(objectives))))
+            return []
 
     def optimize_resource_allocation(
         self,
