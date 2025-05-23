@@ -59,6 +59,7 @@ class OptimizationConfig:
     optimization_objectives: List[str] = field(default_factory=lambda: ['traffic', 'positions'])
     budget_constraints: Dict[str, float] = field(default_factory=dict)
     risk_tolerance: float = 0.3
+    target_roi: float = 2.0
     prediction_horizon_days: int = 30
 
 class PipelineConfigManager:

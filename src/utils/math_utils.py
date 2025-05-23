@@ -1429,3 +1429,426 @@ class TimeSeriesAnalyzer:
             return dw
         except Exception:
             return 2.0  # No autocorrelation
+
+    def analyze_trend_patterns(self, data, time_column=None):
+        """
+        Analyze trend patterns in time series data
+        
+        Args:
+            data: DataFrame with time series data
+            time_column: Name of the time column (optional)
+            
+        Returns:
+            Dict containing trend analysis results
+        """
+        try:
+            self.logger.info("Analyzing trend patterns in time series data")
+            
+            if data.empty:
+                return {
+                    'trend_direction': 'no_data',
+                    'trend_strength': 0.0,
+                    'trend_consistency': 0.0,
+                    'pattern_type': 'insufficient_data'
+                }
+            
+            # Identify time column
+            time_col = self._identify_time_column(data, time_column)
+            
+            if time_col is None:
+                return self._analyze_trends_without_time(data)
+            
+            # Prepare time series
+            ts_data = self._prepare_time_series(data, time_col)
+            
+            # Linear trend analysis
+            trend_analysis = self._calculate_linear_trend(ts_data)
+            
+            # Seasonal decomposition if enough data
+            seasonal_analysis = self._analyze_seasonal_patterns(ts_data)
+            
+            # Pattern recognition
+            pattern_analysis = self._identify_patterns(ts_data)
+            
+            # Trend consistency analysis
+            consistency_analysis = self._analyze_trend_consistency(ts_data)
+            
+            # Combine all analyses
+            comprehensive_analysis = {
+                'trend_direction': trend_analysis['direction'],
+                'trend_strength': trend_analysis['strength'],
+                'trend_slope': trend_analysis['slope'],
+                'trend_r_squared': trend_analysis['r_squared'],
+                'trend_consistency': consistency_analysis['consistency_score'],
+                'pattern_type': pattern_analysis['primary_pattern'],
+                'seasonal_component': seasonal_analysis['has_seasonality'],
+                'volatility': pattern_analysis['volatility'],
+                'change_points': pattern_analysis['change_points'],
+                'trend_confidence': self._calculate_trend_confidence(trend_analysis, consistency_analysis),
+                'forecast_reliability': self._assess_forecast_reliability(ts_data),
+                'analysis_metadata': {
+                    'data_points': len(ts_data),
+                    'time_span_days': self._calculate_time_span(ts_data, time_col),
+                    'missing_values': ts_data.isnull().sum().sum(),
+                    'analysis_timestamp': datetime.now()
+                }
+            }
+            
+            self.logger.info(f"Trend analysis completed: {comprehensive_analysis['trend_direction']} trend with {comprehensive_analysis['trend_strength']:.3f} strength")
+            
+            return comprehensive_analysis
+            
+        except Exception as e:
+            self.logger.error(f"Error in trend pattern analysis: {str(e)}")
+            return {
+                'trend_direction': 'unknown',
+                'trend_strength': 0.0,
+                'trend_consistency': 0.0,
+                'pattern_type': 'error',
+                'error': str(e)
+            }
+
+    def calculate_growth_trends(self, data):
+        """
+        Calculate growth trends and growth rates
+        
+        Args:
+            data: DataFrame with time series data
+            
+        Returns:
+            Dict containing growth trend analysis
+        """
+        try:
+            self.logger.info("Calculating growth trends")
+            
+            if data.empty:
+                return {
+                    'growth_rate': 0.0,
+                    'growth_acceleration': 0.0,
+                    'growth_stability': 0.0,
+                    'growth_pattern': 'no_data'
+                }
+            
+            # Find numeric columns for growth analysis
+            numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+            
+            if not numeric_cols:
+                return {
+                    'growth_rate': 0.0,
+                    'growth_acceleration': 0.0,
+                    'growth_stability': 0.0,
+                    'growth_pattern': 'no_numeric_data'
+                }
+            
+            growth_results = {}
+            
+            for col in numeric_cols[:3]:  # Analyze top 3 numeric columns
+                col_growth = self._calculate_column_growth(data[col])
+                growth_results[col] = col_growth
+            
+            # Overall growth analysis
+            overall_growth = self._calculate_overall_growth(growth_results)
+            
+            # Growth pattern classification
+            growth_pattern = self._classify_growth_pattern(overall_growth)
+            
+            # Growth stability metrics
+            stability_metrics = self._calculate_growth_stability(growth_results)
+            
+            growth_analysis = {
+                'growth_rate': overall_growth['average_growth_rate'],
+                'growth_acceleration': overall_growth['growth_acceleration'],
+                'growth_stability': stability_metrics['stability_score'],
+                'growth_pattern': growth_pattern,
+                'growth_volatility': stability_metrics['volatility'],
+                'growth_consistency': stability_metrics['consistency'],
+                'column_specific_growth': growth_results,
+                'growth_forecasts': self._generate_growth_forecasts(overall_growth),
+                'growth_insights': self._extract_growth_insights(overall_growth, growth_pattern),
+                'analysis_metadata': {
+                    'columns_analyzed': list(growth_results.keys()),
+                    'data_points': len(data),
+                    'analysis_method': 'compound_annual_growth_rate',
+                    'confidence_level': stability_metrics.get('confidence', 0.7)
+                }
+            }
+            
+            self.logger.info(f"Growth analysis completed: {growth_analysis['growth_rate']:.3f} average growth rate")
+            
+            return growth_analysis
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating growth trends: {str(e)}")
+            return {
+                'growth_rate': 0.0,
+                'growth_acceleration': 0.0,
+                'growth_stability': 0.0,
+                'growth_pattern': 'error',
+                'error': str(e)
+            }
+
+    def detect_seasonal_patterns(self, data):
+        """
+        Detect seasonal patterns in time series data
+        
+        Args:
+            data: DataFrame with time series data
+            
+        Returns:
+            Dict containing seasonality analysis
+        """
+        try:
+            self.logger.info("Detecting seasonal patterns")
+            
+            if data.empty or len(data) < 14:  # Need at least 2 weeks of data
+                return {
+                    'has_seasonality': False,
+                    'seasonal_strength': 0.0,
+                    'seasonal_periods': [],
+                    'dominant_period': None,
+                    'pattern_confidence': 0.0
+                }
+            
+            # Find time column
+            time_col = self._identify_time_column(data)
+            
+            if time_col is None:
+                return self._detect_index_based_seasonality(data)
+            
+            # Prepare time series data
+            ts_data = self._prepare_seasonal_analysis(data, time_col)
+            
+            # Test for different seasonal periods
+            seasonal_periods = [7, 14, 30, 90, 365]  # Daily, bi-weekly, monthly, quarterly, yearly
+            seasonal_tests = {}
+            
+            for period in seasonal_periods:
+                if len(ts_data) >= period * 2:  # Need at least 2 cycles
+                    seasonal_test = self._test_seasonal_period(ts_data, period)
+                    seasonal_tests[period] = seasonal_test
+            
+            # Find dominant seasonal pattern
+            dominant_season = self._find_dominant_seasonality(seasonal_tests)
+            
+            # Seasonal decomposition for the dominant period
+            decomposition = self._perform_seasonal_decomposition(ts_data, dominant_season)
+            
+            # Calculate seasonal strength
+            seasonal_strength = self._calculate_seasonal_strength(decomposition)
+            
+            # Generate seasonal insights
+            seasonal_insights = self._generate_seasonal_insights(decomposition, dominant_season)
+            
+            seasonality_analysis = {
+                'has_seasonality': seasonal_strength > 0.3,
+                'seasonal_strength': seasonal_strength,
+                'seasonal_periods': list(seasonal_tests.keys()),
+                'dominant_period': dominant_season['period'] if dominant_season else None,
+                'pattern_confidence': dominant_season['confidence'] if dominant_season else 0.0,
+                'seasonal_decomposition': decomposition,
+                'seasonal_tests': seasonal_tests,
+                'peak_season': seasonal_insights.get('peak_season', 'unknown'),
+                'low_season': seasonal_insights.get('low_season', 'unknown'),
+                'seasonal_amplitude': seasonal_insights.get('amplitude', 0.0),
+                'seasonal_forecasts': self._generate_seasonal_forecasts(decomposition, dominant_season),
+                'analysis_metadata': {
+                    'data_points': len(ts_data),
+                    'periods_tested': len(seasonal_tests),
+                    'decomposition_method': 'additive',
+                    'analysis_timestamp': datetime.now()
+                }
+            }
+            
+            self.logger.info(f"Seasonality analysis completed: {'Seasonal' if seasonality_analysis['has_seasonality'] else 'Non-seasonal'} pattern detected")
+            
+            return seasonality_analysis
+            
+        except Exception as e:
+            self.logger.error(f"Error detecting seasonal patterns: {str(e)}")
+            return {
+                'has_seasonality': False,
+                'seasonal_strength': 0.0,
+                'seasonal_periods': [],
+                'dominant_period': None,
+                'pattern_confidence': 0.0,
+                'error': str(e)
+            }
+
+    # Helper methods for TimeSeriesAnalyzer
+
+    def _identify_time_column(self, data, time_column=None):
+        """Identify the time column in the dataset"""
+        if time_column and time_column in data.columns:
+            return time_column
+        
+        # Look for common time column names
+        time_column_names = ['date', 'time', 'timestamp', 'datetime', 'period']
+        for col in data.columns:
+            if col.lower() in time_column_names:
+                return col
+        
+        # Check for datetime-like columns
+        for col in data.columns:
+            try:
+                pd.to_datetime(data[col].dropna().iloc[:5])
+                return col
+            except:
+                continue
+        
+        return None
+
+    def _prepare_time_series(self, data, time_col):
+        """Prepare time series data for analysis"""
+        ts_data = data.copy()
+        ts_data[time_col] = pd.to_datetime(ts_data[time_col])
+        ts_data = ts_data.sort_values(time_col)
+        ts_data = ts_data.set_index(time_col)
+        
+        # Fill missing values with interpolation
+        numeric_cols = ts_data.select_dtypes(include=[np.number]).columns
+        ts_data[numeric_cols] = ts_data[numeric_cols].interpolate()
+        
+        return ts_data
+
+    def _calculate_linear_trend(self, ts_data):
+        """Calculate linear trend statistics"""
+        from scipy import stats
+        
+        # Use the first numeric column or create aggregate
+        numeric_cols = ts_data.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) == 0:
+            return {'direction': 'no_data', 'strength': 0.0, 'slope': 0.0, 'r_squared': 0.0}
+        
+        # Create time index for regression
+        x = np.arange(len(ts_data))
+        y = ts_data[numeric_cols[0]].values
+        
+        # Remove NaN values
+        mask = ~np.isnan(y)
+        x, y = x[mask], y[mask]
+        
+        if len(x) < 2:
+            return {'direction': 'insufficient_data', 'strength': 0.0, 'slope': 0.0, 'r_squared': 0.0}
+        
+        # Linear regression
+        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+        
+        # Determine trend direction
+        if abs(slope) < 0.001:
+            direction = 'stable'
+        elif slope > 0:
+            direction = 'positive'
+        else:
+            direction = 'negative'
+        
+        return {
+            'direction': direction,
+            'strength': abs(r_value),
+            'slope': slope,
+            'r_squared': r_value**2,
+            'p_value': p_value,
+            'significance': p_value < 0.05
+        }
+
+    def _analyze_trends_without_time(self, data):
+        """Analyze trends when no time column is available"""
+        numeric_cols = data.select_dtypes(include=[np.number]).columns
+        
+        if len(numeric_cols) == 0:
+            return {
+                'trend_direction': 'no_numeric_data',
+                'trend_strength': 0.0,
+                'trend_consistency': 0.0,
+                'pattern_type': 'non_numeric'
+            }
+        
+        # Use row index as proxy for time
+        trends = []
+        for col in numeric_cols[:3]:  # Analyze first 3 columns
+            values = data[col].dropna()
+            if len(values) >= 3:
+                x = np.arange(len(values))
+                slope, _, r_value, _, _ = stats.linregress(x, values)
+                trends.append({'slope': slope, 'strength': abs(r_value)})
+        
+        if not trends:
+            return {
+                'trend_direction': 'insufficient_data',
+                'trend_strength': 0.0,
+                'trend_consistency': 0.0,
+                'pattern_type': 'insufficient_data'
+            }
+        
+        # Aggregate trends
+        avg_slope = np.mean([t['slope'] for t in trends])
+        avg_strength = np.mean([t['strength'] for t in trends])
+        
+        direction = 'positive' if avg_slope > 0.001 else 'negative' if avg_slope < -0.001 else 'stable'
+        
+        return {
+            'trend_direction': direction,
+            'trend_strength': avg_strength,
+            'trend_consistency': avg_strength,  # Simplified
+            'pattern_type': 'index_based_analysis'
+        }
+
+    def _calculate_column_growth(self, series):
+        """Calculate growth metrics for a single column"""
+        values = series.dropna()
+        
+        if len(values) < 2:
+            return {
+                'growth_rate': 0.0,
+                'volatility': 0.0,
+                'trend': 'insufficient_data'
+            }
+        
+        # Calculate period-over-period growth rates
+        pct_changes = values.pct_change().dropna()
+        
+        if len(pct_changes) == 0:
+            return {
+                'growth_rate': 0.0,
+                'volatility': 0.0,
+                'trend': 'no_change'
+            }
+        
+        # Growth metrics
+        avg_growth = pct_changes.mean()
+        growth_volatility = pct_changes.std()
+        
+        # Compound annual growth rate (simplified)
+        if len(values) > 1 and values.iloc[0] != 0:
+            total_return = values.iloc[-1] / values.iloc[0] - 1
+            periods = len(values) - 1
+            cagr = (1 + total_return) ** (1/periods) - 1 if periods > 0 else 0
+        else:
+            cagr = 0
+        
+        return {
+            'growth_rate': avg_growth,
+            'volatility': growth_volatility,
+            'cagr': cagr,
+            'total_return': total_return if 'total_return' in locals() else 0,
+            'trend': 'positive' if avg_growth > 0.01 else 'negative' if avg_growth < -0.01 else 'stable'
+        }
+
+    def _calculate_overall_growth(self, growth_results):
+        """Calculate overall growth metrics across all columns"""
+        if not growth_results:
+            return {
+                'average_growth_rate': 0.0,
+                'growth_acceleration': 0.0,
+                'growth_consistency': 0.0
+            }
+        
+        growth_rates = [result['growth_rate'] for result in growth_results.values()]
+        
+        return {
+            'average_growth_rate': np.mean(growth_rates),
+            'growth_acceleration': np.std(growth_rates),  # Higher std indicates more acceleration/deceleration
+            'growth_consistency': 1.0 / (1.0 + np.std(growth_rates)),  # Inverse relationship with volatility
+            'median_growth_rate': np.median(growth_rates),
+            'max_growth_rate': np.max(growth_rates),
+            'min_growth_rate': np.min(growth_rates)
+        }

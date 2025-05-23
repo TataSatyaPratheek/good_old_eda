@@ -2204,3 +2204,1297 @@ class CompetitivePipeline:
             return allocation
         except Exception as e:
             self.logger.error(f"Error recommending resource allocation: {str(e)}")
+
+    def _determine_analysis_timeframe(self, primary_data, competitor_data):
+        """Determine analysis timeframe from data"""
+        try:
+            all_dates = []
+            if 'date' in primary_data.columns:
+                all_dates.extend(pd.to_datetime(primary_data['date']).tolist())
+            
+            for data in competitor_data.values():
+                if 'date' in data.columns:
+                    all_dates.extend(pd.to_datetime(data['date']).tolist())
+            
+            if all_dates:
+                return {
+                    'start_date': min(all_dates),
+                    'end_date': max(all_dates),
+                    'total_days': (max(all_dates) - min(all_dates)).days
+                }
+            
+            return {'start_date': None, 'end_date': None, 'total_days': 0}
+        except Exception:
+            return {'start_date': None, 'end_date': None, 'total_days': 0}
+
+    def _identify_common_keywords(self, primary_data, competitor_data):
+        """Identify keywords common across datasets"""
+        try:
+            primary_keywords = set(primary_data['Keyword'].str.lower().tolist())
+            
+            common_keywords = primary_keywords
+            for data in competitor_data.values():
+                competitor_keywords = set(data['Keyword'].str.lower().tolist())
+                common_keywords = common_keywords.intersection(competitor_keywords)
+            
+            return list(common_keywords)
+        except Exception:
+            return []
+
+    def _calculate_data_coverage_overlap(self, primary_data, competitor_data):
+        """Calculate data coverage overlap percentage"""
+        try:
+            primary_keywords = set(primary_data['Keyword'].str.lower().tolist())
+            total_unique_keywords = primary_keywords.copy()
+            
+            for data in competitor_data.values():
+                competitor_keywords = set(data['Keyword'].str.lower().tolist())
+                total_unique_keywords.update(competitor_keywords)
+            
+            overlap_percentage = len(primary_keywords) / len(total_unique_keywords) if total_unique_keywords else 0
+            return overlap_percentage
+        except Exception:
+            return 0.0
+
+    def _calculate_market_metrics(self, primary_data, competitor_data):
+        """Calculate comprehensive market metrics"""
+        try:
+            # Calculate total market size
+            total_traffic = primary_data.get('Traffic (%)', pd.Series()).sum()
+            competitor_traffic = sum(data.get('Traffic (%)', pd.Series()).sum() for data in competitor_data.values())
+            total_market_traffic = total_traffic + competitor_traffic
+            
+            # Market share calculation
+            market_share = total_traffic / total_market_traffic if total_market_traffic > 0 else 0
+            
+            # Keyword universe size
+            total_keywords = len(primary_data)
+            competitor_keywords = sum(len(data) for data in competitor_data.values())
+            total_keyword_universe = total_keywords + competitor_keywords
+            
+            return {
+                'total_market_traffic': total_market_traffic,
+                'primary_market_share': market_share,
+                'primary_traffic': total_traffic,
+                'competitor_traffic': competitor_traffic,
+                'keyword_universe_size': total_keyword_universe,
+                'primary_keyword_coverage': total_keywords / total_keyword_universe if total_keyword_universe > 0 else 0,
+                'market_concentration_ratio': self._calculate_market_concentration(primary_data, competitor_data)
+            }
+        except Exception:
+            return {}
+
+    def _calculate_market_concentration(self, primary_data, competitor_data):
+        """Calculate market concentration ratio"""
+        try:
+            traffic_values = [primary_data.get('Traffic (%)', pd.Series()).sum()]
+            traffic_values.extend([data.get('Traffic (%)', pd.Series()).sum() for data in competitor_data.values()])
+            
+            total_traffic = sum(traffic_values)
+            if total_traffic == 0:
+                return 0
+            
+            # Calculate HHI (Herfindahl-Hirschman Index)
+            market_shares = [traffic / total_traffic for traffic in traffic_values]
+            hhi = sum(share ** 2 for share in market_shares)
+            
+            return hhi
+        except Exception:
+            return 0
+
+    def _analyze_competitive_intensity(self, primary_data, competitor_data):
+        """Analyze competitive intensity"""
+        try:
+            # Calculate competitive metrics
+            competitor_count = len(competitor_data)
+            
+            # Average competitor strength
+            avg_competitor_traffic = np.mean([data.get('Traffic (%)', pd.Series()).sum() 
+                                            for data in competitor_data.values()]) if competitor_data else 0
+            
+            primary_traffic = primary_data.get('Traffic (%)', pd.Series()).sum()
+            
+            # Intensity scoring
+            if competitor_count > 10 and avg_competitor_traffic > primary_traffic:
+                intensity_score = 0.9
+                pressure_level = 'very_high'
+            elif competitor_count > 5 and avg_competitor_traffic > primary_traffic * 0.5:
+                intensity_score = 0.7
+                pressure_level = 'high'
+            elif competitor_count > 2:
+                intensity_score = 0.5
+                pressure_level = 'medium'
+            else:
+                intensity_score = 0.3
+                pressure_level = 'low'
+            
+            return {
+                'intensity_score': intensity_score,
+                'competitive_pressure': pressure_level,
+                'competitor_count': competitor_count,
+                'avg_competitor_strength': avg_competitor_traffic,
+                'key_competitors': list(competitor_data.keys()),
+                'intensity_factors': [
+                    f"{competitor_count} active competitors",
+                    f"Average competitor traffic: {avg_competitor_traffic:.1f}%",
+                    f"Competitive pressure: {pressure_level}"
+                ]
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing competitive intensity: {str(e)}")
+            return {'intensity_score': 0.5, 'competitive_pressure': 'unknown'}
+
+    def _identify_market_opportunities(self, market_analysis, market_metrics):
+        """Identify market opportunities"""
+        try:
+            opportunities = []
+
+            # Analyze market size potential
+            market_size = market_metrics.get('total_market_traffic', 0)
+            primary_share = market_metrics.get('primary_market_share', 0)
+
+            if primary_share < 0.3 and market_size > 1000:
+                opportunities.append({
+                    'type': 'market_expansion',
+                    'description': 'Significant market share growth potential',
+                    'priority': 'high',
+                    'estimated_impact': market_size * 0.1,
+                    'effort_required': 'medium',
+                    'timeframe': '6-12 months'
+                })
+
+            # Analyze keyword coverage gaps
+            keyword_coverage = market_metrics.get('primary_keyword_coverage', 0)
+            if keyword_coverage < 0.5:
+                opportunities.append({
+                    'type': 'keyword_expansion',
+                    'description': 'Expand keyword portfolio coverage',
+                    'priority': 'medium',
+                    'estimated_impact': 'increased_visibility',
+                    'effort_required': 'low',
+                    'timeframe': '3-6 months'
+                })
+
+            # Check for low competition segments
+            concentration_ratio = market_metrics.get('market_concentration_ratio', 1)
+            if concentration_ratio < 0.5:
+                opportunities.append({
+                    'type': 'fragmented_market',
+                    'description': 'Fragmented market with growth opportunities',
+                    'priority': 'medium',
+                    'estimated_impact': 'market_leadership',
+                    'effort_required': 'high',
+                    'timeframe': '12-18 months'
+                })
+
+            return {
+                'opportunities': opportunities,
+                'total_opportunities': len(opportunities),
+                'high_priority_count': len([op for op in opportunities if op['priority'] == 'high']),
+                'market_potential_score': min(primary_share * 2, 1.0),
+                'opportunity_categories': list(set([op['type'] for op in opportunities]))
+            }
+        except Exception as e:
+            self.logger.error(f"Error identifying market opportunities: {str(e)}")
+            return {'opportunities': [], 'total_opportunities': 0}
+
+    async def _analyze_market_evolution(self, primary_data, competitor_data):
+        """Analyze market evolution trends"""
+        try:
+            # Use time series analyzer for market evolution
+            evolution_trends = {}
+            
+            # Analyze primary data evolution
+            if not primary_data.empty:
+                primary_evolution = self.time_series_analyzer.analyze_trend_patterns(
+                    primary_data, time_column='date' if 'date' in primary_data.columns else None
+                )
+                evolution_trends['primary'] = primary_evolution
+            
+            # Analyze competitor evolution
+            for competitor, data in competitor_data.items():
+                if not data.empty:
+                    comp_evolution = self.time_series_analyzer.analyze_trend_patterns(
+                        data, time_column='date' if 'date' in data.columns else None
+                    )
+                    evolution_trends[competitor] = comp_evolution
+            
+            # Market maturity assessment
+            if evolution_trends:
+                trend_directions = [trend.get('trend_direction', 'stable') for trend in evolution_trends.values()]
+                positive_trends = sum(1 for direction in trend_directions if direction == 'positive')
+                
+                if positive_trends / len(trend_directions) > 0.6:
+                    maturity_stage = 'growth'
+                elif positive_trends / len(trend_directions) > 0.3:
+                    maturity_stage = 'developing'
+                else:
+                    maturity_stage = 'mature'
+            else:
+                maturity_stage = 'unknown'
+            
+            return {
+                'evolution_trends': evolution_trends,
+                'market_maturity': maturity_stage,
+                'trend_summary': {
+                    'positive_trends': len([t for t in evolution_trends.values() if t.get('trend_direction') == 'positive']),
+                    'negative_trends': len([t for t in evolution_trends.values() if t.get('trend_direction') == 'negative']),
+                    'stable_trends': len([t for t in evolution_trends.values() if t.get('trend_direction') == 'stable'])
+                },
+                'market_velocity': np.mean([t.get('trend_strength', 0) for t in evolution_trends.values()]) if evolution_trends else 0
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing market evolution: {str(e)}")
+            return {'evolution_trends': {}, 'market_maturity': 'unknown'}
+
+    def _extract_landscape_insights(self, market_analysis, market_metrics, competitive_intensity):
+        """Extract key landscape insights"""
+        try:
+            insights = []
+            
+            # Market size insights
+            market_size = market_metrics.get('total_market_traffic', 0)
+            if market_size > 10000:
+                insights.append("Large market opportunity with significant traffic potential")
+            elif market_size > 1000:
+                insights.append("Medium-sized market with growth potential")
+            else:
+                insights.append("Niche market with focused opportunities")
+            
+            # Market share insights
+            market_share = market_metrics.get('primary_market_share', 0)
+            if market_share > 0.4:
+                insights.append("Market leader position with defensive strategy needed")
+            elif market_share > 0.2:
+                insights.append("Strong market position with expansion opportunities")
+            else:
+                insights.append("Market challenger position with significant growth potential")
+            
+            # Competitive intensity insights
+            intensity_score = competitive_intensity.get('intensity_score', 0)
+            if intensity_score > 0.7:
+                insights.append("Highly competitive market environment requires differentiation")
+            elif intensity_score < 0.3:
+                insights.append("Low competition presents opportunity for market share gains")
+            else:
+                insights.append("Moderate competition with strategic positioning opportunities")
+            
+            # Market concentration insights
+            concentration = market_metrics.get('market_concentration_ratio', 0)
+            if concentration < 0.3:
+                insights.append("Fragmented market with consolidation opportunities")
+            elif concentration > 0.7:
+                insights.append("Concentrated market dominated by few players")
+            
+            return insights
+        except Exception as e:
+            self.logger.error(f"Error extracting landscape insights: {str(e)}")
+            return []
+
+    def _analyze_competitive_strengths_weaknesses(self, position_comparison, traffic_comparison):
+        """Analyze competitive strengths and weaknesses"""
+        try:
+            strengths = []
+            weaknesses = []
+            
+            # Position-based analysis
+            keywords_ahead = position_comparison.get('keywords_ahead', 0)
+            keywords_behind = position_comparison.get('keywords_behind', 0)
+            
+            if keywords_ahead > keywords_behind:
+                strengths.append(f"Superior positioning on {keywords_ahead} keywords vs competitors")
+            else:
+                weaknesses.append(f"Lagging behind on {keywords_behind} keywords vs competitors")
+            
+            # Traffic performance analysis
+            traffic_efficiency = traffic_comparison.get('traffic_efficiency', 1.0)
+            if traffic_efficiency > 1.2:
+                strengths.append("Above-average traffic efficiency per keyword")
+            elif traffic_efficiency < 0.8:
+                weaknesses.append("Below-average traffic efficiency per keyword")
+            
+            # Competitive coverage analysis
+            competitive_coverage = position_comparison.get('competitive_coverage', 0.5)
+            if competitive_coverage > 0.7:
+                strengths.append("Strong competitive keyword coverage")
+            else:
+                weaknesses.append("Limited competitive keyword coverage")
+            
+            # Growth rate analysis
+            growth_rate = traffic_comparison.get('growth_rate', 0)
+            if growth_rate > 0.1:
+                strengths.append("Strong traffic growth momentum")
+            elif growth_rate < -0.1:
+                weaknesses.append("Declining traffic performance")
+            
+            return {
+                'strengths': strengths,
+                'weaknesses': weaknesses,
+                'competitive_advantages': [s for s in strengths if 'superior' in s.lower() or 'strong' in s.lower()],
+                'improvement_areas': weaknesses,
+                'strength_score': len(strengths) / (len(strengths) + len(weaknesses)) if (strengths or weaknesses) else 0.5,
+                'priority_improvements': weaknesses[:3],  # Top 3 priority areas
+                'key_differentiators': strengths[:2]  # Top 2 key strengths
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing strengths/weaknesses: {str(e)}")
+            return {'strengths': [], 'weaknesses': [], 'strength_score': 0.5}
+
+    def _create_competitive_position_matrix(self, primary_data, competitor_data):
+        """Create competitive position matrix"""
+        try:
+            matrix_data = {}
+            
+            # Primary company position
+            primary_traffic = primary_data.get('Traffic (%)', pd.Series()).sum()
+            primary_keywords = len(primary_data)
+            primary_avg_position = primary_data.get('Position', pd.Series()).mean()
+            
+            matrix_data['primary'] = {
+                'traffic': primary_traffic,
+                'keywords': primary_keywords,
+                'avg_position': primary_avg_position,
+                'market_presence': 'primary'
+            }
+            
+            # Competitor positions
+            for competitor, data in competitor_data.items():
+                comp_traffic = data.get('Traffic (%)', pd.Series()).sum()
+                comp_keywords = len(data)
+                comp_avg_position = data.get('Position', pd.Series()).mean()
+                
+                # Classify competitor strength
+                if comp_traffic > primary_traffic * 1.2:
+                    strength = 'stronger'
+                elif comp_traffic > primary_traffic * 0.8:
+                    strength = 'similar'
+                else:
+                    strength = 'weaker'
+                
+                matrix_data[competitor] = {
+                    'traffic': comp_traffic,
+                    'keywords': comp_keywords,
+                    'avg_position': comp_avg_position,
+                    'relative_strength': strength,
+                    'traffic_ratio': comp_traffic / primary_traffic if primary_traffic > 0 else 0
+                }
+            
+            # Create positioning quadrants
+            quadrants = self._create_positioning_quadrants(matrix_data)
+            
+            return {
+                'matrix_data': matrix_data,
+                'positioning_quadrants': quadrants,
+                'market_leaders': [comp for comp, data in matrix_data.items() 
+                                if data.get('relative_strength') == 'stronger'],
+                'direct_competitors': [comp for comp, data in matrix_data.items() 
+                                    if data.get('relative_strength') == 'similar'],
+                'weaker_competitors': [comp for comp, data in matrix_data.items() 
+                                    if data.get('relative_strength') == 'weaker']
+            }
+        except Exception as e:
+            self.logger.error(f"Error creating position matrix: {str(e)}")
+            return {}
+
+    def _create_positioning_quadrants(self, matrix_data):
+        """Create positioning quadrants based on traffic and keyword volume"""
+        try:
+            quadrants = {
+                'leaders': [],      # High traffic, High keywords
+                'challengers': [],  # High traffic, Low keywords  
+                'specialists': [],  # Low traffic, High keywords
+                'followers': []     # Low traffic, Low keywords
+            }
+            
+            # Calculate medians for thresholds
+            traffic_values = [data['traffic'] for data in matrix_data.values()]
+            keyword_values = [data['keywords'] for data in matrix_data.values()]
+            
+            traffic_median = np.median(traffic_values) if traffic_values else 0
+            keyword_median = np.median(keyword_values) if keyword_values else 0
+            
+            for entity, data in matrix_data.items():
+                traffic = data['traffic']
+                keywords = data['keywords']
+                
+                if traffic >= traffic_median and keywords >= keyword_median:
+                    quadrants['leaders'].append(entity)
+                elif traffic >= traffic_median and keywords < keyword_median:
+                    quadrants['challengers'].append(entity)
+                elif traffic < traffic_median and keywords >= keyword_median:
+                    quadrants['specialists'].append(entity)
+                else:
+                    quadrants['followers'].append(entity)
+            
+            return quadrants
+        except Exception:
+            return {'leaders': [], 'challengers': [], 'specialists': [], 'followers': []}
+
+    def _analyze_competitive_differentiation(self, primary_data, competitor_data):
+        """Analyze competitive differentiation"""
+        try:
+            differentiation_factors = []
+            
+            # Unique keyword analysis
+            primary_keywords = set(primary_data['Keyword'].str.lower()) if 'Keyword' in primary_data.columns else set()
+            all_competitor_keywords = set()
+            
+            for data in competitor_data.values():
+                if 'Keyword' in data.columns:
+                    all_competitor_keywords.update(data['Keyword'].str.lower())
+            
+            unique_keywords = primary_keywords - all_competitor_keywords
+            common_keywords = primary_keywords.intersection(all_competitor_keywords)
+            
+            # Differentiation scoring
+            if len(unique_keywords) > 100:
+                differentiation_factors.append("Strong unique keyword portfolio")
+            
+            if len(unique_keywords) / len(primary_keywords) > 0.3 if primary_keywords else False:
+                differentiation_factors.append("High keyword differentiation ratio")
+            
+            # SERP feature differentiation
+            if 'SERP Features by Keyword' in primary_data.columns:
+                primary_features = set()
+                for features in primary_data['SERP Features by Keyword'].dropna():
+                    if features:
+                        primary_features.update([f.strip() for f in str(features).split(',')])
+                
+                if len(primary_features) > 5:
+                    differentiation_factors.append("Diverse SERP feature presence")
+            
+            # Traffic efficiency differentiation
+            primary_traffic_per_keyword = (primary_data.get('Traffic (%)', pd.Series()).sum() / 
+                                        len(primary_data)) if len(primary_data) > 0 else 0
+            
+            competitor_avg_efficiency = []
+            for data in competitor_data.values():
+                if len(data) > 0:
+                    comp_efficiency = data.get('Traffic (%)', pd.Series()).sum() / len(data)
+                    competitor_avg_efficiency.append(comp_efficiency)
+            
+            avg_competitor_efficiency = np.mean(competitor_avg_efficiency) if competitor_avg_efficiency else 0
+            
+            if primary_traffic_per_keyword > avg_competitor_efficiency * 1.2:
+                differentiation_factors.append("Superior traffic efficiency per keyword")
+            
+            return {
+                'differentiation_factors': differentiation_factors,
+                'unique_keyword_count': len(unique_keywords),
+                'common_keyword_count': len(common_keywords),
+                'differentiation_score': len(unique_keywords) / len(primary_keywords) if primary_keywords else 0,
+                'traffic_efficiency_advantage': primary_traffic_per_keyword / avg_competitor_efficiency if avg_competitor_efficiency > 0 else 1,
+                'differentiation_summary': f"{len(differentiation_factors)} key differentiating factors identified"
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing differentiation: {str(e)}")
+            return {'differentiation_factors': [], 'differentiation_score': 0}
+
+    def _extract_positioning_insights(self, position_comparison, traffic_comparison, strengths_weaknesses):
+        """Extract positioning insights"""
+        try:
+            insights = []
+            
+            # Position-based insights
+            keywords_ahead = position_comparison.get('keywords_ahead', 0)
+            if keywords_ahead > 100:
+                insights.append(f"Strong competitive positioning with {keywords_ahead} keyword advantages")
+            
+            # Traffic efficiency insights
+            traffic_efficiency = traffic_comparison.get('traffic_efficiency', 1.0)
+            if traffic_efficiency > 1.2:
+                insights.append("Above-average traffic efficiency demonstrates strong content quality")
+            elif traffic_efficiency < 0.8:
+                insights.append("Below-average traffic efficiency indicates optimization opportunities")
+            
+            # Strength-based insights
+            strength_score = strengths_weaknesses.get('strength_score', 0.5)
+            if strength_score > 0.7:
+                insights.append("Competitive strengths outweigh weaknesses significantly")
+            elif strength_score < 0.3:
+                insights.append("Competitive weaknesses require immediate attention")
+            
+            # Growth momentum insights
+            growth_rate = traffic_comparison.get('growth_rate', 0)
+            if growth_rate > 0.1:
+                insights.append("Positive growth momentum provides competitive advantage")
+            
+            return insights
+        except Exception as e:
+            self.logger.error(f"Error extracting positioning insights: {str(e)}")
+            return []
+
+    def _calculate_competitive_rankings(self, position_comparison, traffic_comparison):
+        """Calculate competitive rankings"""
+        try:
+            # Calculate scoring components
+            position_score = position_comparison.get('keywords_ahead', 0) - position_comparison.get('keywords_behind', 0)
+            traffic_score = traffic_comparison.get('total_traffic', 0)
+            efficiency_score = traffic_comparison.get('traffic_efficiency', 1.0)
+            
+            # Normalize scores
+            position_rank = 1 if position_score > 0 else 3 if position_score == 0 else 5
+            traffic_rank = 1 if traffic_score > 1000 else 2 if traffic_score > 500 else 3 if traffic_score > 100 else 4
+            efficiency_rank = 1 if efficiency_score > 1.2 else 2 if efficiency_score > 1.0 else 3 if efficiency_score > 0.8 else 4
+            
+            # Calculate overall ranking
+            overall_score = (position_rank * 0.4 + traffic_rank * 0.4 + efficiency_rank * 0.2)
+            overall_rank = int(overall_score)
+            
+            return {
+                'position_rank': position_rank,
+                'traffic_rank': traffic_rank,
+                'efficiency_rank': efficiency_rank,
+                'overall_rank': overall_rank,
+                'ranking_components': {
+                    'position_score': position_score,
+                    'traffic_score': traffic_score,
+                    'efficiency_score': efficiency_score
+                },
+                'ranking_methodology': 'weighted_composite_score',
+                'percentile_ranking': max(0, min(100, (6 - overall_rank) * 20))  # Convert to percentile
+            }
+        except Exception as e:
+            self.logger.error(f"Error calculating competitive rankings: {str(e)}")
+            return {'overall_rank': 3, 'position_rank': 3, 'traffic_rank': 3}
+
+    def _analyze_content_gaps(self, primary_data, competitor_data):
+        """Analyze content gaps"""
+        try:
+            gaps = []
+            
+            # Topic coverage gaps
+            primary_topics = set()
+            if 'Keyword' in primary_data.columns:
+                for keyword in primary_data['Keyword'].dropna():
+                    if keyword:
+                        # Extract first word as topic proxy
+                        topic = keyword.split()[0].lower() if keyword.split() else ''
+                        if len(topic) > 2:  # Filter out very short topics
+                            primary_topics.add(topic)
+            
+            for competitor, comp_data in competitor_data.items():
+                if 'Keyword' in comp_data.columns:
+                    comp_topics = set()
+                    for keyword in comp_data['Keyword'].dropna():
+                        if keyword:
+                            topic = keyword.split()[0].lower() if keyword.split() else ''
+                            if len(topic) > 2:
+                                comp_topics.add(topic)
+                    
+                    # Identify topic gaps
+                    topic_gaps = comp_topics - primary_topics
+                    
+                    for topic in list(topic_gaps)[:10]:  # Limit to top 10 gaps per competitor
+                        gaps.append({
+                            'gap_type': 'topic_coverage',
+                            'topic': topic,
+                            'competitor': competitor,
+                            'priority': 'medium',
+                            'opportunity_type': 'content_expansion'
+                        })
+            
+            # Long-tail keyword gaps
+            primary_long_tail = set()
+            if 'Keyword' in primary_data.columns:
+                primary_long_tail = set(kw.lower() for kw in primary_data['Keyword'].dropna() 
+                                    if len(kw.split()) >= 3)
+            
+            for competitor, comp_data in competitor_data.items():
+                if 'Keyword' in comp_data.columns:
+                    comp_long_tail = set(kw.lower() for kw in comp_data['Keyword'].dropna() 
+                                    if len(kw.split()) >= 3)
+                    
+                    long_tail_gaps = comp_long_tail - primary_long_tail
+                    
+                    for keyword in list(long_tail_gaps)[:5]:  # Top 5 long-tail gaps
+                        gaps.append({
+                            'gap_type': 'long_tail_keywords',
+                            'keyword': keyword,
+                            'competitor': competitor,
+                            'priority': 'low',
+                            'opportunity_type': 'long_tail_expansion'
+                        })
+            
+            return gaps
+        except Exception as e:
+            self.logger.error(f"Error analyzing content gaps: {str(e)}")
+            return []
+
+    def _analyze_serp_feature_gaps(self, primary_data, competitor_data):
+        """Analyze SERP feature gaps"""
+        try:
+            gaps = []
+            serp_col = 'SERP Features by Keyword'
+            
+            if serp_col not in primary_data.columns:
+                return gaps
+            
+            # Analyze primary SERP feature presence
+            primary_features = set()
+            for features_str in primary_data[serp_col].dropna():
+                if features_str and str(features_str) != 'nan':
+                    features = [f.strip() for f in str(features_str).split(',')]
+                    primary_features.update(features)
+            
+            # Compare with competitors
+            for competitor, comp_data in competitor_data.items():
+                if serp_col in comp_data.columns:
+                    comp_features = set()
+                    for features_str in comp_data[serp_col].dropna():
+                        if features_str and str(features_str) != 'nan':
+                            features = [f.strip() for f in str(features_str).split(',')]
+                            comp_features.update(features)
+                    
+                    # Identify feature gaps
+                    missing_features = comp_features - primary_features
+                    for feature in missing_features:
+                        if feature and feature.lower() != 'none':
+                            gaps.append({
+                                'gap_type': 'serp_feature',
+                                'feature': feature,
+                                'competitor': competitor,
+                                'priority': 'medium',
+                                'opportunity_type': 'serp_optimization'
+                            })
+            
+            return gaps
+        except Exception as e:
+            self.logger.error(f"Error analyzing SERP feature gaps: {str(e)}")
+            return []
+
+    def _analyze_performance_gaps(self, primary_data, competitor_data):
+        """Analyze performance gaps"""
+        try:
+            gaps = []
+            
+            # Traffic performance gaps
+            primary_avg_traffic = primary_data.get('Traffic (%)', pd.Series()).mean()
+            
+            for competitor, comp_data in competitor_data.items():
+                comp_avg_traffic = comp_data.get('Traffic (%)', pd.Series()).mean()
+                
+                if comp_avg_traffic > primary_avg_traffic * 1.2:  # 20% threshold
+                    gap_magnitude = comp_avg_traffic - primary_avg_traffic
+                    gaps.append({
+                        'gap_type': 'traffic_performance',
+                        'metric': 'average_traffic',
+                        'competitor': competitor,
+                        'gap_magnitude': gap_magnitude,
+                        'primary_value': primary_avg_traffic,
+                        'competitor_value': comp_avg_traffic,
+                        'priority': 'high' if gap_magnitude > primary_avg_traffic else 'medium'
+                    })
+            
+            # Position performance gaps
+            primary_avg_position = primary_data.get('Position', pd.Series()).mean()
+            
+            for competitor, comp_data in competitor_data.items():
+                comp_avg_position = comp_data.get('Position', pd.Series()).mean()
+                
+                if comp_avg_position < primary_avg_position * 0.8:  # Better positions (lower numbers)
+                    position_advantage = primary_avg_position - comp_avg_position
+                    gaps.append({
+                        'gap_type': 'position_performance',
+                        'metric': 'average_position',
+                        'competitor': competitor,
+                        'gap_magnitude': position_advantage,
+                        'primary_value': primary_avg_position,
+                        'competitor_value': comp_avg_position,
+                        'priority': 'high' if position_advantage > 5 else 'medium'
+                    })
+            
+            return gaps
+        except Exception as e:
+            self.logger.error(f"Error analyzing performance gaps: {str(e)}")
+            return []
+
+    def _generate_additional_gap_insights(self, content_gaps, serp_gaps, performance_gaps):
+        """Generate additional insights from gap analysis"""
+        try:
+            insights = []
+            
+            # Content gap insights
+            if len(content_gaps) > 10:
+                insights.append("Significant content coverage gaps identified across multiple competitors")
+                
+            topic_gaps = [gap for gap in content_gaps if gap.get('gap_type') == 'topic_coverage']
+            if len(topic_gaps) > 5:
+                insights.append("Multiple topic areas missing from current content strategy")
+            
+            # SERP feature insights
+            if len(serp_gaps) > 5:
+                insights.append("Missing key SERP features compared to competitors")
+                
+            feature_types = set([gap.get('feature', '') for gap in serp_gaps])
+            if 'Featured Snippet' in feature_types:
+                insights.append("Featured snippet opportunities available")
+            
+            # Performance gap insights
+            high_priority_gaps = [gap for gap in performance_gaps if gap.get('priority') == 'high']
+            if len(high_priority_gaps) > 2:
+                insights.append("Multiple high-priority performance optimization opportunities exist")
+            
+            traffic_gaps = [gap for gap in performance_gaps if gap.get('gap_type') == 'traffic_performance']
+            if len(traffic_gaps) > 1:
+                insights.append("Traffic optimization potential identified vs multiple competitors")
+            
+            return insights
+        except Exception as e:
+            self.logger.error(f"Error generating additional gap insights: {str(e)}")
+            return []
+
+    def _analyze_growth_trajectories(self, primary_data, competitor_data):
+        """Analyze growth trajectories"""
+        try:
+            growth_patterns = {}
+            
+            # Analyze primary growth if date column exists
+            if 'date' in primary_data.columns and not primary_data.empty:
+                primary_growth = self.time_series_analyzer.calculate_growth_trends(primary_data)
+                growth_patterns['primary'] = primary_growth
+            
+            # Analyze competitor growth
+            for competitor, data in competitor_data.items():
+                if 'date' in data.columns and not data.empty:
+                    comp_growth = self.time_series_analyzer.calculate_growth_trends(data)
+                    growth_patterns[competitor] = comp_growth
+            
+            # Calculate trajectory metrics
+            trajectory_analysis = {}
+            for entity, growth_data in growth_patterns.items():
+                if growth_data:
+                    trajectory_analysis[entity] = {
+                        'trend_direction': growth_data.get('trend', 'stable'),
+                        'growth_rate': growth_data.get('growth_rate', 0),
+                        'volatility': growth_data.get('volatility', 0),
+                        'consistency': 1.0 - min(growth_data.get('volatility', 0), 1.0)
+                    }
+            
+            # Project future growth
+            future_projections = {}
+            for entity, growth_data in growth_patterns.items():
+                if growth_data and 'growth_rate' in growth_data:
+                    current_rate = growth_data['growth_rate']
+                    future_projections[entity] = {
+                        '3_month_projection': current_rate * 3,
+                        '6_month_projection': current_rate * 6,
+                        '12_month_projection': current_rate * 12,
+                        'confidence': min(growth_data.get('consistency', 0.5), 0.9)
+                    }
+            
+            return {
+                'growth_patterns': growth_patterns,
+                'trajectory_analysis': trajectory_analysis,
+                'future_projections': future_projections,
+                'growth_leaders': [entity for entity, analysis in trajectory_analysis.items() 
+                                if analysis.get('growth_rate', 0) > 0.05],
+                'declining_entities': [entity for entity, analysis in trajectory_analysis.items() 
+                                    if analysis.get('growth_rate', 0) < -0.05]
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing growth trajectories: {str(e)}")
+            return {'growth_patterns': {}, 'trajectory_analysis': {}}
+
+    def _analyze_market_momentum(self, trend_analysis, growth_trajectories):
+        """Analyze market momentum"""
+        try:
+            momentum_indicators = []
+            overall_momentum = 'stable'
+            
+            # Analyze growth trajectory momentum
+            trajectory_analysis = growth_trajectories.get('trajectory_analysis', {})
+            if trajectory_analysis:
+                positive_growth = sum(1 for analysis in trajectory_analysis.values() 
+                                    if analysis.get('growth_rate', 0) > 0)
+                total_entities = len(trajectory_analysis)
+                
+                positive_ratio = positive_growth / total_entities if total_entities > 0 else 0
+                
+                if positive_ratio > 0.6:
+                    overall_momentum = 'accelerating'
+                    momentum_indicators.append("Majority of market participants showing positive growth")
+                elif positive_ratio < 0.4:
+                    overall_momentum = 'decelerating'
+                    momentum_indicators.append("Declining growth across market participants")
+                else:
+                    overall_momentum = 'mixed'
+                    momentum_indicators.append("Mixed growth patterns across market")
+            
+            # Analyze trend strength
+            if hasattr(trend_analysis, 'trend_patterns'):
+                trends = trend_analysis.trend_patterns
+                if trends:
+                    strong_trends = sum(1 for t in trends.values() if t.get('strength', 0) > 0.7)
+                    if strong_trends > len(trends) / 2:
+                        momentum_indicators.append("Strong trend patterns detected")
+            
+            # Calculate momentum score
+            momentum_score = 0.5  # Default neutral
+            if overall_momentum == 'accelerating':
+                momentum_score = 0.8
+            elif overall_momentum == 'decelerating':
+                momentum_score = 0.2
+            
+            return {
+                'overall_momentum': overall_momentum,
+                'momentum_indicators': momentum_indicators,
+                'momentum_score': momentum_score,
+                'market_velocity': 'high' if momentum_score > 0.7 else 'low' if momentum_score < 0.3 else 'medium',
+                'momentum_stability': len([entity for entity, analysis in trajectory_analysis.items() 
+                                        if analysis.get('consistency', 0) > 0.7]) if trajectory_analysis else 0
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing market momentum: {str(e)}")
+            return {'overall_momentum': 'unknown', 'momentum_indicators': []}
+
+    def _analyze_seasonal_patterns(self, primary_data, competitor_data):
+        """Analyze seasonal patterns"""
+        try:
+            patterns = {}
+            
+            # Check if date column exists for seasonal analysis
+            if 'date' in primary_data.columns and not primary_data.empty:
+                primary_seasonal = self.time_series_analyzer.detect_seasonal_patterns(primary_data)
+                patterns['primary'] = primary_seasonal
+            
+            for competitor, data in competitor_data.items():
+                if 'date' in data.columns and not data.empty:
+                    comp_seasonal = self.time_series_analyzer.detect_seasonal_patterns(data)
+                    patterns[competitor] = comp_seasonal
+            
+            # Extract seasonal insights
+            seasonal_insights = []
+            seasonal_entities = []
+            
+            for entity, pattern_data in patterns.items():
+                if pattern_data and pattern_data.get('has_seasonality'):
+                    seasonal_entities.append(entity)
+                    peak_season = pattern_data.get('peak_season', 'unknown')
+                    if peak_season != 'unknown':
+                        seasonal_insights.append(f"{entity} shows seasonal peaks in {peak_season}")
+            
+            # Market seasonality assessment
+            if len(seasonal_entities) > len(patterns) / 2:
+                market_seasonality = 'high'
+            elif len(seasonal_entities) > 0:
+                market_seasonality = 'moderate'
+            else:
+                market_seasonality = 'low'
+            
+            return {
+                'seasonal_patterns': patterns,
+                'seasonal_insights': seasonal_insights,
+                'market_seasonality': market_seasonality,
+                'seasonal_entities': seasonal_entities,
+                'seasonal_opportunities': self._identify_seasonal_opportunities(patterns)
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing seasonal patterns: {str(e)}")
+            return {'seasonal_patterns': {}, 'seasonal_insights': []}
+
+    def _identify_seasonal_opportunities(self, patterns):
+        """Identify seasonal opportunities from pattern analysis"""
+        try:
+            opportunities = []
+            
+            for entity, pattern_data in patterns.items():
+                if pattern_data and pattern_data.get('has_seasonality'):
+                    peak_season = pattern_data.get('peak_season')
+                    seasonal_strength = pattern_data.get('seasonal_strength', 0)
+                    
+                    if seasonal_strength > 0.6:
+                        opportunities.append({
+                            'entity': entity,
+                            'opportunity_type': 'seasonal_optimization',
+                            'peak_season': peak_season,
+                            'strength': seasonal_strength,
+                            'recommendation': f"Optimize content and strategy for {peak_season} seasonal peaks"
+                        })
+            
+            return opportunities
+        except Exception:
+            return []
+
+    def _analyze_competitive_velocity(self, trend_analysis):
+        """Analyze competitive velocity"""
+        try:
+            velocity_metrics = {}
+            
+            # Extract competitor trends if available
+            if hasattr(trend_analysis, 'competitor_trends'):
+                competitor_trends = trend_analysis.competitor_trends
+                
+                for competitor, trend_data in competitor_trends.items():
+                    velocity_score = (trend_data.get('trend_strength', 0) * 
+                                    trend_data.get('trend_consistency', 1))
+                    
+                    velocity_metrics[competitor] = {
+                        'velocity_score': velocity_score,
+                        'trend_direction': trend_data.get('direction', 'stable'),
+                        'acceleration': trend_data.get('acceleration', 0),
+                        'consistency': trend_data.get('trend_consistency', 0.5)
+                    }
+            
+            # Calculate overall market velocity
+            if velocity_metrics:
+                avg_velocity = np.mean([m['velocity_score'] for m in velocity_metrics.values()])
+                market_velocity = 'high' if avg_velocity > 0.7 else 'low' if avg_velocity < 0.3 else 'moderate'
+            else:
+                market_velocity = 'unknown'
+                avg_velocity = 0.5
+            
+            # Generate velocity insights
+            velocity_insights = []
+            high_velocity_competitors = [comp for comp, metrics in velocity_metrics.items() 
+                                    if metrics.get('velocity_score', 0) > 0.7]
+            
+            if high_velocity_competitors:
+                velocity_insights.append(f"High velocity competitors: {', '.join(high_velocity_competitors)}")
+            
+            return {
+                'competitor_velocities': velocity_metrics,
+                'overall_market_velocity': market_velocity,
+                'average_velocity_score': avg_velocity,
+                'velocity_insights': velocity_insights,
+                'velocity_leaders': high_velocity_competitors,
+                'velocity_distribution': self._calculate_velocity_distribution(velocity_metrics)
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing competitive velocity: {str(e)}")
+            return {'overall_market_velocity': 'unknown', 'competitor_velocities': {}}
+
+    def _calculate_velocity_distribution(self, velocity_metrics):
+        """Calculate velocity distribution across competitors"""
+        try:
+            if not velocity_metrics:
+                return {'high': 0, 'medium': 0, 'low': 0}
+            
+            velocities = [m['velocity_score'] for m in velocity_metrics.values()]
+            
+            high_count = sum(1 for v in velocities if v > 0.7)
+            low_count = sum(1 for v in velocities if v < 0.3)
+            medium_count = len(velocities) - high_count - low_count
+            
+            return {
+                'high': high_count,
+                'medium': medium_count,
+                'low': low_count,
+                'total': len(velocities)
+            }
+        except Exception:
+            return {'high': 0, 'medium': 0, 'low': 0}
+
+    def _extract_trend_insights(self, trend_analysis, growth_trajectories, market_momentum):
+        """Extract trend insights"""
+        try:
+            insights = []
+            
+            # Market momentum insights
+            momentum = market_momentum.get('overall_momentum', 'stable')
+            if momentum == 'accelerating':
+                insights.append("Market showing strong positive momentum across participants")
+            elif momentum == 'decelerating':
+                insights.append("Market momentum declining - potential consolidation phase")
+            elif momentum == 'mixed':
+                insights.append("Mixed market momentum creates competitive opportunities")
+            
+            # Growth trajectory insights
+            trajectory_analysis = growth_trajectories.get('trajectory_analysis', {})
+            if trajectory_analysis:
+                growth_leaders = [entity for entity, analysis in trajectory_analysis.items() 
+                                if analysis.get('growth_rate', 0) > 0.1]
+                if growth_leaders:
+                    insights.append(f"High growth entities identified: {', '.join(growth_leaders)}")
+            
+            # Trend strength insights
+            if hasattr(trend_analysis, 'trend_patterns'):
+                strong_trends = sum(1 for t in trend_analysis.trend_patterns.values() 
+                                if t.get('strength', 0) > 0.7)
+                if strong_trends > 2:
+                    insights.append("Multiple strong trend patterns detected in market")
+            
+            return insights
+        except Exception as e:
+            self.logger.error(f"Error extracting trend insights: {str(e)}")
+            return []
+
+    def _generate_trend_forecasts(self, trend_analysis, growth_trajectories):
+        """Generate trend forecasts"""
+        try:
+            forecasts = {}
+            
+            # Generate forecasts based on growth trajectories
+            future_projections = growth_trajectories.get('future_projections', {})
+            
+            for entity, projection in future_projections.items():
+                forecast_direction = 'positive' if projection.get('6_month_projection', 0) > 0 else 'negative'
+                confidence_level = projection.get('confidence', 'medium')
+                
+                forecasts[entity] = {
+                    'forecast_direction': forecast_direction,
+                    'confidence_level': confidence_level,
+                    'projection_period': '6_months',
+                    '3_month_outlook': projection.get('3_month_projection', 0),
+                    '6_month_outlook': projection.get('6_month_projection', 0),
+                    '12_month_outlook': projection.get('12_month_projection', 0)
+                }
+            
+            # Generate market forecast
+            market_forecast = self._generate_market_forecast(forecasts)
+            
+            return {
+                'entity_forecasts': forecasts,
+                'market_forecast': market_forecast,
+                'forecast_confidence': 'medium',  # Overall confidence
+                'forecast_methodology': 'growth_trajectory_extrapolation',
+                'forecast_horizon': '12_months',
+                'forecast_assumptions': [
+                    'Current growth patterns continue',
+                    'No major market disruptions',
+                    'Competitive landscape remains stable'
+                ]
+            }
+        except Exception as e:
+            self.logger.error(f"Error generating trend forecasts: {str(e)}")
+            return {'entity_forecasts': {}, 'market_forecast': {}}
+
+    def _generate_market_forecast(self, entity_forecasts):
+        """Generate overall market forecast"""
+        try:
+            if not entity_forecasts:
+                return {'direction': 'stable', 'confidence': 'low'}
+            
+            positive_forecasts = sum(1 for forecast in entity_forecasts.values() 
+                                if forecast.get('forecast_direction') == 'positive')
+            total_forecasts = len(entity_forecasts)
+            
+            positive_ratio = positive_forecasts / total_forecasts
+            
+            if positive_ratio > 0.6:
+                direction = 'growth'
+                outlook = 'positive'
+            elif positive_ratio < 0.4:
+                direction = 'decline'
+                outlook = 'negative'
+            else:
+                direction = 'stable'
+                outlook = 'mixed'
+            
+            # Calculate confidence based on forecast agreement
+            confidence_scores = [0.8 if f.get('confidence_level') == 'high' else 
+                            0.6 if f.get('confidence_level') == 'medium' else 0.4 
+                            for f in entity_forecasts.values()]
+            
+            avg_confidence = np.mean(confidence_scores) if confidence_scores else 0.5
+            
+            return {
+                'direction': direction,
+                'outlook': outlook,
+                'confidence': 'high' if avg_confidence > 0.7 else 'medium' if avg_confidence > 0.5 else 'low',
+                'positive_ratio': positive_ratio,
+                'market_consensus': 'strong' if abs(positive_ratio - 0.5) > 0.3 else 'weak'
+            }
+        except Exception:
+            return {'direction': 'unknown', 'confidence': 'low'}
+
+    def _recommend_risk_mitigation(self, intelligence_synthesis):
+        """Risk mitigation recommendations"""
+        try:
+            mitigation_strategies = []
+            
+            # Threat-based mitigation
+            threat_analysis = intelligence_synthesis.get('detailed_analysis', {}).get('threat_analysis', {})
+            threat_scores = threat_analysis.get('threat_scores', {})
+            
+            high_threat_competitors = [comp for comp, score in threat_scores.items() if score > 0.7]
+            if high_threat_competitors:
+                mitigation_strategies.append({
+                    'risk_type': 'competitive_threats',
+                    'strategy': 'Enhanced competitive monitoring and rapid response capabilities',
+                    'priority': 'high',
+                    'timeline': 'immediate',
+                    'resources': ['analytics', 'competitive_intelligence'],
+                    'success_metrics': ['threat_detection_time', 'response_effectiveness']
+                })
+            
+            # Market position risk mitigation
+            market_position = intelligence_synthesis.get('executive_summary', {}).get('market_position', 'unknown')
+            if market_position == 'challenging':
+                mitigation_strategies.append({
+                    'risk_type': 'market_position',
+                    'strategy': 'Defensive positioning and differentiation strategy',
+                    'priority': 'high',
+                    'timeline': '3-6 months',
+                    'resources': ['product', 'marketing', 'content'],
+                    'success_metrics': ['market_share_retention', 'competitive_differentiation']
+                })
+            
+            # Opportunity loss mitigation
+            opportunity_count = len(intelligence_synthesis.get('detailed_analysis', {}).get('market_analysis', {}).get('market_opportunities', {}).get('opportunities', []))
+            if opportunity_count > 10:
+                mitigation_strategies.append({
+                    'risk_type': 'opportunity_loss',
+                    'strategy': 'Rapid opportunity capture and prioritization framework',
+                    'priority': 'medium',
+                    'timeline': '1-3 months',
+                    'resources': ['strategy', 'execution'],
+                    'success_metrics': ['opportunity_capture_rate', 'time_to_market']
+                })
+            
+            return {
+                'risk_mitigation_strategies': mitigation_strategies,
+                'priority_risks': [s for s in mitigation_strategies if s['priority'] == 'high'],
+                'risk_monitoring_plan': {
+                    'frequency': 'weekly',
+                    'key_indicators': ['competitive_threat_level', 'market_share', 'opportunity_pipeline'],
+                    'alert_thresholds': {'threat_level': 0.7, 'share_decline': 0.05}
+                }
+            }
+        except Exception as e:
+            self.logger.error(f"Error in risk mitigation recommendations: {str(e)}")
+            return {'risk_mitigation_strategies': []}
+
+    def _create_executive_dashboard_metrics(self, intelligence_synthesis):
+        """Create executive dashboard metrics"""
+        try:
+            # Extract key metrics from intelligence synthesis
+            market_analysis = intelligence_synthesis.get('detailed_analysis', {}).get('market_analysis', {})
+            positioning_analysis = intelligence_synthesis.get('detailed_analysis', {}).get('positioning_analysis', {})
+            threat_analysis = intelligence_synthesis.get('detailed_analysis', {}).get('threat_analysis', {})
+            
+            # Key performance indicators
+            market_metrics = market_analysis.get('market_metrics', {})
+            market_share = market_metrics.get('primary_market_share', 0)
+            
+            # Competitive position metrics
+            strengths_weaknesses = positioning_analysis.get('strengths_weaknesses', {})
+            strength_score = strengths_weaknesses.get('strength_score', 0.5)
+            
+            # Threat level calculation
+            threat_scores = threat_analysis.get('threat_scores', {})
+            avg_threat_level = np.mean(list(threat_scores.values())) if threat_scores else 0.3
+            
+            # Opportunity score
+            opportunities = market_analysis.get('market_opportunities', {}).get('opportunities', [])
+            opportunity_score = len(opportunities) / 20 if opportunities else 0  # Normalize to 20 max
+            
+            dashboard_metrics = {
+                'key_metrics': {
+                    'market_share_percentage': f"{market_share:.1%}",
+                    'competitive_position': 'leading' if strength_score > 0.7 else 'competitive' if strength_score > 0.4 else 'challenging',
+                    'threat_level': 'high' if avg_threat_level > 0.7 else 'medium' if avg_threat_level > 0.4 else 'low',
+                    'opportunity_score': f"{opportunity_score:.2f}",
+                    'overall_health': 'strong' if strength_score > 0.6 and avg_threat_level < 0.5 else 'moderate'
+                },
+                'trend_indicators': {
+                    'market_momentum': intelligence_synthesis.get('detailed_analysis', {}).get('trend_analysis', {}).get('market_momentum', {}).get('overall_momentum', 'stable'),
+                    'competitive_velocity': 'increasing' if avg_threat_level > 0.5 else 'stable',
+                    'growth_trajectory': 'positive' if opportunity_score > 0.3 else 'stable'
+                },
+                'alert_status': {
+                    'high_priority_alerts': self._generate_high_priority_alerts(intelligence_synthesis),
+                    'monitoring_status': 'active',
+                    'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M')
+                }
+            }
+            
+            return dashboard_metrics
+        except Exception as e:
+            self.logger.error(f"Error creating executive dashboard metrics: {str(e)}")
+            return {'key_metrics': {}, 'trend_indicators': {}, 'alert_status': {}}
+
+    def _generate_high_priority_alerts(self, intelligence_synthesis):
+        """Generate high priority alerts for executive dashboard"""
+        try:
+            alerts = []
+            
+            # Threat-based alerts
+            threat_analysis = intelligence_synthesis.get('detailed_analysis', {}).get('threat_analysis', {})
+            threat_scores = threat_analysis.get('threat_scores', {})
+            
+            for competitor, score in threat_scores.items():
+                if score > 0.8:
+                    alerts.append({
+                        'type': 'competitive_threat',
+                        'severity': 'high',
+                        'message': f'High competitive threat detected from {competitor}',
+                        'action_required': 'immediate_analysis'
+                    })
+            
+            # Market position alerts
+            market_position = intelligence_synthesis.get('executive_summary', {}).get('market_position', 'unknown')
+            if market_position == 'challenging':
+                alerts.append({
+                    'type': 'market_position',
+                    'severity': 'medium',
+                    'message': 'Market position requires strategic attention',
+                    'action_required': 'strategic_review'
+                })
+            
+            # Opportunity alerts
+            opportunity_count = len(intelligence_synthesis.get('detailed_analysis', {}).get('market_analysis', {}).get('market_opportunities', {}).get('opportunities', []))
+            if opportunity_count > 15:
+                alerts.append({
+                    'type': 'opportunity_overflow',
+                    'severity': 'medium',
+                    'message': f'{opportunity_count} opportunities identified - prioritization needed',
+                    'action_required': 'opportunity_prioritization'
+                })
+            
+            return alerts[:5]  # Limit to top 5 alerts
+        except Exception:
+            return []
+
+    def _export_competitive_visualizations(self, intelligence_synthesis):
+        """Export competitive visualizations"""
+        try:
+            viz_exports = {}
+            
+            # Market share visualization
+            market_metrics = intelligence_synthesis.get('detailed_analysis', {}).get('market_analysis', {}).get('market_metrics', {})
+            if market_metrics:
+                market_share_chart = self.viz_engine.create_market_share_chart(
+                    market_metrics,
+                    export_path='reports/visuals/competitive_landscape/market_share.png'
+                )
+                viz_exports['market_share'] = market_share_chart
+            
+            # Competitive positioning matrix
+            positioning_analysis = intelligence_synthesis.get('detailed_analysis', {}).get('positioning_analysis', {})
+            position_matrix = positioning_analysis.get('position_matrix', {})
+            if position_matrix:
+                positioning_chart = self.viz_engine.create_competitive_positioning_chart(
+                    position_matrix,
+                    export_path='reports/visuals/competitive_landscape/competitive_landscape.png'
+                )
+                viz_exports['competitive_positioning'] = positioning_chart
+            
+            # Threat assessment visualization
+            threat_analysis = intelligence_synthesis.get('detailed_analysis', {}).get('threat_analysis', {})
+            threat_scores = threat_analysis.get('threat_scores', {})
+            if threat_scores:
+                threat_chart = self.viz_engine.create_threat_assessment_chart(
+                    threat_scores,
+                    export_path='reports/visuals/competitive_landscape/threat_assessment.png'
+                )
+                viz_exports['threat_assessment'] = threat_chart
+            
+            # Summary of exports
+            export_summary = {
+                'total_visualizations': len(viz_exports),
+                'successful_exports': len([v for v in viz_exports.values() if v]),
+                'export_timestamp': datetime.now(),
+                'export_locations': {
+                    'market_share': 'reports/visuals/competitive_landscape/market_share.png',
+                    'competitive_positioning': 'reports/visuals/competitive_landscape/competitive_landscape.png',
+                    'threat_assessment': 'reports/visuals/competitive_landscape/threat_assessment.png'
+                }
+            }
+            
+            viz_exports['export_summary'] = export_summary
+            
+            return viz_exports
+        except Exception as e:
+            self.logger.error(f"Error exporting competitive visualizations: {str(e)}")
+            return {'export_summary': {'total_visualizations': 0, 'successful_exports': 0}}

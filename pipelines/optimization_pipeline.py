@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 import asyncio
+from dataclasses import field
 
 # Import refactored modules
 from src.models.traffic_optimizer import TrafficOptimizer, OptimizationResult, TrafficForecast
@@ -26,6 +27,17 @@ from src.utils.math_utils import StatisticalCalculator, OptimizationHelper
 
 # Import pipeline configuration
 from .pipeline_config import PipelineConfigManager
+
+class OptimizationConfig:
+    """Optimization configuration class"""
+    def __init__(self):
+        self.target_roi = 2.0  # Add this missing attribute
+        self.max_budget = 10000.0
+        self.risk_tolerance = 0.3
+        self.optimization_objectives: List[str] = field(default_factory=lambda: ['traffic', 'positions'])
+        self.budget_constraints: Dict[str, float] = field(default_factory=dict)
+        self.risk_tolerance: float = 0.3
+        self.prediction_horizon_days: int = 30
 
 class OptimizationPipeline:
     """
@@ -785,3 +797,742 @@ class OptimizationPipeline:
             return score / max_score if max_score > 0 else 0
         except Exception:
             return 0.0
+    def _define_optimization_scope(self, data):
+        """Define optimization scope and parameters"""
+        try:
+            self.logger.info("Defining optimization scope")
+            
+            # Determine data characteristics
+            data_shape = data.shape if hasattr(data, 'shape') else (0, 0)
+            
+            # Define optimization objectives
+            objectives = ['traffic_optimization', 'position_improvement', 'roi_maximization']
+            
+            # Define constraints based on data
+            constraints = {
+                'budget_constraint': self.config.budget_constraints.get('total_budget', 10000.0),
+                'time_constraint': 90,  # days
+                'resource_constraint': 100,  # arbitrary units
+                'risk_constraint': self.config.risk_tolerance,
+                'quality_constraint': 0.8
+            }
+            
+            # Define optimization variables
+            variables = {
+                'keyword_focus': list(range(min(100, data_shape[0]))),  # Keywords to focus on
+                'content_optimization': [0.0, 1.0],  # Optimization intensity
+                'budget_allocation': [0.0, constraints['budget_constraint']],
+                'timeline_allocation': [1, constraints['time_constraint']]
+            }
+            
+            # Define success metrics
+            success_metrics = [
+                'traffic_increase_percentage',
+                'position_improvement_average',
+                'roi_achievement',
+                'cost_efficiency',
+                'time_to_results'
+            ]
+            
+            optimization_scope = {
+                'objectives': objectives,
+                'constraints': constraints,
+                'variables': variables,
+                'success_metrics': success_metrics,
+                'data_characteristics': {
+                    'total_keywords': data_shape[0],
+                    'total_features': data_shape[1],
+                    'optimization_potential': min(data_shape[0] / 100, 1.0)
+                },
+                'scope_definition': {
+                    'primary_focus': 'traffic_and_positions',
+                    'secondary_focus': 'roi_optimization',
+                    'optimization_method': 'multi_objective',
+                    'optimization_horizon': f"{constraints['time_constraint']} days"
+                }
+            }
+            
+            self.logger.info(f"Optimization scope defined: {len(objectives)} objectives, {len(constraints)} constraints")
+            return optimization_scope
+            
+        except Exception as e:
+            self.logger.error(f"Error defining optimization scope: {str(e)}")
+            return {
+                'objectives': ['traffic_optimization'],
+                'constraints': {'budget_constraint': 10000.0},
+                'variables': {'keyword_focus': []},
+                'success_metrics': ['traffic_increase']
+            }
+
+    def _optimize_position_improvements(self, data):
+        """Optimize position improvements"""
+        try:
+            self.logger.info("Optimizing position improvements")
+            
+            if data.empty:
+                return {'position_recommendations': [], 'expected_improvement': 0}
+            
+            # Analyze current positions
+            if 'Position' in data.columns:
+                current_positions = data['Position'].dropna()
+                avg_position = current_positions.mean()
+                
+                # Identify improvement opportunities
+                improvable_keywords = data[data['Position'] > 10] if 'Position' in data.columns else pd.DataFrame()
+                
+                # Generate position optimization recommendations
+                recommendations = []
+                for idx, row in improvable_keywords.head(20).iterrows():  # Top 20 opportunities
+                    current_pos = row.get('Position', 50)
+                    target_pos = max(1, current_pos - 5)  # Improve by 5 positions
+                    
+                    recommendations.append({
+                        'keyword': row.get('Keyword', f'keyword_{idx}'),
+                        'current_position': current_pos,
+                        'target_position': target_pos,
+                        'improvement_potential': current_pos - target_pos,
+                        'estimated_effort': 'medium' if current_pos > 20 else 'high',
+                        'priority': 'high' if current_pos > 30 else 'medium',
+                        'optimization_tactics': [
+                            'content_optimization',
+                            'internal_linking',
+                            'technical_seo'
+                        ]
+                    })
+                
+                # Calculate expected overall improvement
+                total_improvement = sum(rec['improvement_potential'] for rec in recommendations)
+                expected_improvement = total_improvement / len(data) if len(data) > 0 else 0
+                
+            else:
+                recommendations = []
+                expected_improvement = 0
+            
+            return {
+                'position_recommendations': recommendations,
+                'expected_improvement': expected_improvement,
+                'total_opportunities': len(recommendations),
+                'high_priority_count': len([r for r in recommendations if r['priority'] == 'high']),
+                'optimization_strategy': 'focused_improvement',
+                'timeline_estimate': '3-6 months'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error optimizing position improvements: {str(e)}")
+            return {'position_recommendations': [], 'expected_improvement': 0}
+
+    def _optimize_content_gaps(self, data):
+        """Optimize content gaps"""
+        try:
+            self.logger.info("Optimizing content gaps")
+            
+            if data.empty:
+                return {'content_recommendations': [], 'priority_score': 0}
+            
+            content_recommendations = []
+            
+            # Analyze keyword themes for content gaps
+            if 'Keyword' in data.columns:
+                keywords = data['Keyword'].dropna().tolist()
+                
+                # Extract topics from keywords (simplified approach)
+                topics = {}
+                for keyword in keywords[:100]:  # Limit analysis
+                    words = keyword.lower().split()
+                    if words:
+                        topic = words[0]  # Use first word as topic proxy
+                        if topic not in topics:
+                            topics[topic] = []
+                        topics[topic].append(keyword)
+                
+                # Identify content opportunities
+                for topic, topic_keywords in topics.items():
+                    if len(topic_keywords) >= 3:  # Minimum threshold for content opportunity
+                        avg_volume = 0
+                        if 'Volume' in data.columns:
+                            topic_data = data[data['Keyword'].isin(topic_keywords)]
+                            avg_volume = topic_data['Volume'].mean() if not topic_data.empty else 0
+                        
+                        content_recommendations.append({
+                            'topic': topic,
+                            'keyword_count': len(topic_keywords),
+                            'content_type': 'comprehensive_guide',
+                            'priority': 'high' if len(topic_keywords) > 5 else 'medium',
+                            'estimated_traffic_potential': avg_volume * len(topic_keywords) * 0.1,
+                            'content_tactics': [
+                                'pillar_page_creation',
+                                'topic_clustering',
+                                'internal_linking_optimization'
+                            ],
+                            'timeline': '4-8 weeks'
+                        })
+            
+            # Calculate priority score
+            high_priority_count = len([r for r in content_recommendations if r['priority'] == 'high'])
+            priority_score = min(high_priority_count / 10, 1.0)  # Normalize to max 10 high priority items
+            
+            return {
+                'content_recommendations': content_recommendations,
+                'priority_score': priority_score,
+                'total_opportunities': len(content_recommendations),
+                'high_priority_topics': [r['topic'] for r in content_recommendations if r['priority'] == 'high'],
+                'estimated_total_impact': sum(r.get('estimated_traffic_potential', 0) for r in content_recommendations),
+                'content_strategy': 'topic_cluster_approach'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error optimizing content gaps: {str(e)}")
+            return {'content_recommendations': [], 'priority_score': 0}
+
+    def _optimize_budget_allocation(self, data):
+        """Optimize budget allocation"""
+        try:
+            self.logger.info("Optimizing budget allocation")
+            
+            total_budget = self.config.budget_constraints.get('total_budget', 10000.0)
+            
+            # Define budget categories
+            budget_categories = {
+                'content_optimization': 0.4,    # 40% for content
+                'technical_seo': 0.25,          # 25% for technical
+                'link_building': 0.20,          # 20% for links
+                'paid_promotion': 0.10,         # 10% for paid
+                'tools_and_analytics': 0.05     # 5% for tools
+            }
+            
+            # Calculate actual allocations
+            budget_allocation = {}
+            for category, percentage in budget_categories.items():
+                allocated_amount = total_budget * percentage
+                budget_allocation[category] = {
+                    'allocated_amount': allocated_amount,
+                    'percentage': percentage,
+                    'priority': 'high' if percentage > 0.3 else 'medium' if percentage > 0.15 else 'low',
+                    'expected_roi': self._estimate_category_roi(category),
+                    'risk_level': self._assess_category_risk(category)
+                }
+            
+            # Calculate expected overall ROI
+            expected_roi = sum(
+                alloc['allocated_amount'] * alloc['expected_roi'] 
+                for alloc in budget_allocation.values()
+            ) / total_budget
+            
+            # Generate allocation recommendations
+            recommendations = []
+            for category, allocation in budget_allocation.items():
+                if allocation['expected_roi'] > 2.0:
+                    recommendations.append({
+                        'category': category,
+                        'recommendation': 'increase_allocation',
+                        'reason': 'high_expected_roi',
+                        'suggested_change': '+10%'
+                    })
+                elif allocation['expected_roi'] < 1.5:
+                    recommendations.append({
+                        'category': category,
+                        'recommendation': 'decrease_allocation',
+                        'reason': 'low_expected_roi',
+                        'suggested_change': '-5%'
+                    })
+            
+            return {
+                'budget_allocation': budget_allocation,
+                'total_budget': total_budget,
+                'expected_roi': expected_roi,
+                'allocation_recommendations': recommendations,
+                'budget_efficiency_score': expected_roi / 2.0,  # Normalize against target ROI of 2.0
+                'risk_adjusted_return': expected_roi * 0.8,  # Conservative estimate
+                'optimization_strategy': 'roi_based_allocation'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error optimizing budget allocation: {str(e)}")
+            return {'budget_allocation': {}, 'expected_roi': 0}
+
+    def _estimate_category_roi(self, category):
+        """Estimate ROI for budget category"""
+        roi_estimates = {
+            'content_optimization': 3.0,
+            'technical_seo': 2.5,
+            'link_building': 2.0,
+            'paid_promotion': 1.5,
+            'tools_and_analytics': 1.8
+        }
+        return roi_estimates.get(category, 2.0)
+
+    def _assess_category_risk(self, category):
+        """Assess risk level for budget category"""
+        risk_levels = {
+            'content_optimization': 'low',
+            'technical_seo': 'low',
+            'link_building': 'medium',
+            'paid_promotion': 'high',
+            'tools_and_analytics': 'low'
+        }
+        return risk_levels.get(category, 'medium')
+
+    def _optimize_portfolio_risk(self, data):
+        """Optimize portfolio risk"""
+        try:
+            self.logger.info("Optimizing portfolio risk")
+            
+            if data.empty:
+                return {'risk_distribution': {}, 'risk_score': 0.5}
+            
+            # Analyze keyword portfolio risk
+            risk_factors = {
+                'keyword_concentration': self._calculate_keyword_concentration_risk(data),
+                'position_volatility': self._calculate_position_volatility_risk(data),
+                'traffic_dependence': self._calculate_traffic_dependence_risk(data),
+                'competitive_pressure': self._calculate_competitive_pressure_risk(data),
+                'search_volume_risk': self._calculate_search_volume_risk(data)
+            }
+            
+            # Calculate overall risk score
+            risk_weights = {
+                'keyword_concentration': 0.25,
+                'position_volatility': 0.20,
+                'traffic_dependence': 0.20,
+                'competitive_pressure': 0.20,
+                'search_volume_risk': 0.15
+            }
+            
+            overall_risk_score = sum(
+                risk_factors[factor] * risk_weights[factor] 
+                for factor in risk_factors
+            )
+            
+            # Generate risk mitigation recommendations
+            risk_mitigation = []
+            for factor, risk_level in risk_factors.items():
+                if risk_level > 0.7:
+                    risk_mitigation.append({
+                        'risk_factor': factor,
+                        'risk_level': risk_level,
+                        'mitigation_strategy': self._get_risk_mitigation_strategy(factor),
+                        'priority': 'high',
+                        'implementation_timeline': '1-3 months'
+                    })
+            
+            # Create risk distribution
+            risk_distribution = {
+                'low_risk_keywords': len(data) * (1 - overall_risk_score) * 0.6,
+                'medium_risk_keywords': len(data) * overall_risk_score * 0.7,
+                'high_risk_keywords': len(data) * overall_risk_score * 0.3,
+                'total_keywords': len(data)
+            }
+            
+            return {
+                'risk_distribution': risk_distribution,
+                'risk_score': overall_risk_score,
+                'risk_factors': risk_factors,
+                'risk_mitigation': risk_mitigation,
+                'portfolio_health': 'healthy' if overall_risk_score < 0.4 else 'moderate' if overall_risk_score < 0.7 else 'high_risk',
+                'diversification_score': 1 - risk_factors.get('keyword_concentration', 0.5)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error optimizing portfolio risk: {str(e)}")
+            return {'risk_distribution': {}, 'risk_score': 0.5}
+
+    def _calculate_keyword_concentration_risk(self, data):
+        """Calculate keyword concentration risk"""
+        try:
+            if 'Traffic (%)' in data.columns:
+                traffic_values = data['Traffic (%)'].dropna()
+                if len(traffic_values) > 0:
+                    # Calculate concentration using Gini coefficient approach
+                    sorted_traffic = np.sort(traffic_values)
+                    n = len(sorted_traffic)
+                    index = np.arange(1, n + 1)
+                    concentration = (2 * np.sum(index * sorted_traffic)) / (n * np.sum(sorted_traffic)) - (n + 1) / n
+                    return min(concentration, 1.0)
+            return 0.5
+        except Exception:
+            return 0.5
+
+    def _calculate_position_volatility_risk(self, data):
+        """Calculate position volatility risk"""
+        try:
+            if 'Position' in data.columns:
+                positions = data['Position'].dropna()
+                if len(positions) > 1:
+                    volatility = np.std(positions) / np.mean(positions) if np.mean(positions) > 0 else 0
+                    return min(volatility / 2, 1.0)  # Normalize
+            return 0.3
+        except Exception:
+            return 0.3
+
+    def _calculate_traffic_dependence_risk(self, data):
+        """Calculate traffic dependence risk"""
+        try:
+            if 'Traffic (%)' in data.columns:
+                traffic_values = data['Traffic (%)'].dropna()
+                if len(traffic_values) > 0:
+                    # Check if top 20% of keywords drive 80% of traffic (Pareto principle)
+                    sorted_traffic = traffic_values.sort_values(ascending=False)
+                    top_20_percent_count = max(1, int(len(sorted_traffic) * 0.2))
+                    top_20_percent_traffic = sorted_traffic.head(top_20_percent_count).sum()
+                    total_traffic = sorted_traffic.sum()
+                    
+                    if total_traffic > 0:
+                        dependence_ratio = top_20_percent_traffic / total_traffic
+                        return min(dependence_ratio, 1.0)
+            return 0.4
+        except Exception:
+            return 0.4
+
+    def _calculate_competitive_pressure_risk(self, data):
+        """Calculate competitive pressure risk"""
+        try:
+            if 'Keyword Difficulty' in data.columns:
+                difficulty_values = data['Keyword Difficulty'].dropna()
+                if len(difficulty_values) > 0:
+                    avg_difficulty = difficulty_values.mean()
+                    return min(avg_difficulty / 100, 1.0)  # Normalize to 0-1 scale
+            return 0.5
+        except Exception:
+            return 0.5
+
+    def _calculate_search_volume_risk(self, data):
+        """Calculate search volume risk"""
+        try:
+            if 'Volume' in data.columns:
+                volumes = data['Volume'].dropna()
+                if len(volumes) > 0:
+                    # Low volume keywords are riskier
+                    avg_volume = volumes.mean()
+                    # Risk decreases as volume increases, using log scale
+                    risk = 1 - min(np.log10(avg_volume + 1) / 5, 1.0)  # Normalize
+                    return max(0, risk)
+            return 0.6
+        except Exception:
+            return 0.6
+
+    def _get_risk_mitigation_strategy(self, risk_factor):
+        """Get risk mitigation strategy for specific risk factor"""
+        strategies = {
+            'keyword_concentration': 'Diversify keyword portfolio across multiple themes and long-tail variations',
+            'position_volatility': 'Strengthen content quality and technical SEO foundation',
+            'traffic_dependence': 'Develop secondary traffic sources and reduce dependency on top keywords',
+            'competitive_pressure': 'Focus on differentiation and unique value propositions',
+            'search_volume_risk': 'Balance portfolio with mix of high and medium volume keywords'
+        }
+        return strategies.get(risk_factor, 'Monitor and adjust strategy based on performance data')
+
+    def _create_optimization_performance_summary(self, results):
+        """Create optimization performance summary"""
+        try:
+            self.logger.info("Creating optimization performance summary")
+            
+            # Extract performance metrics from various optimization results
+            position_results = results.get('position_optimization', {})
+            content_results = results.get('content_optimization', {})
+            budget_results = results.get('budget_optimization', {})
+            portfolio_results = results.get('portfolio_optimization', {})
+            
+            # Calculate overall performance scores
+            performance_metrics = {
+                'position_improvement_score': self._calculate_position_performance_score(position_results),
+                'content_optimization_score': self._calculate_content_performance_score(content_results),
+                'budget_efficiency_score': budget_results.get('budget_efficiency_score', 0.5),
+                'portfolio_health_score': 1 - portfolio_results.get('risk_score', 0.5),
+                'overall_optimization_score': 0.0
+            }
+            
+            # Calculate weighted overall score
+            weights = {
+                'position_improvement_score': 0.3,
+                'content_optimization_score': 0.25,
+                'budget_efficiency_score': 0.25,
+                'portfolio_health_score': 0.2
+            }
+            
+            performance_metrics['overall_optimization_score'] = sum(
+                performance_metrics[metric] * weights[metric] 
+                for metric in weights
+            )
+            
+            # Generate performance insights
+            performance_insights = []
+            if performance_metrics['overall_optimization_score'] > 0.7:
+                performance_insights.append("Excellent optimization performance across all areas")
+            elif performance_metrics['overall_optimization_score'] > 0.5:
+                performance_insights.append("Good optimization performance with room for improvement")
+            else:
+                performance_insights.append("Optimization performance needs significant improvement")
+            
+            # Identify best and worst performing areas
+            best_area = max(performance_metrics, key=performance_metrics.get)
+            worst_area = min(performance_metrics, key=performance_metrics.get)
+            
+            performance_insights.append(f"Strongest area: {best_area}")
+            performance_insights.append(f"Area needing attention: {worst_area}")
+            
+            performance_summary = {
+                'performance_metrics': performance_metrics,
+                'performance_insights': performance_insights,
+                'optimization_effectiveness': 'high' if performance_metrics['overall_optimization_score'] > 0.7 else 'medium',
+                'key_achievements': self._identify_key_achievements(results),
+                'improvement_areas': self._identify_improvement_areas(performance_metrics),
+                'next_steps': self._generate_next_steps(performance_metrics),
+                'summary_timestamp': datetime.now()
+            }
+            
+            return performance_summary
+            
+        except Exception as e:
+            self.logger.error(f"Error creating optimization performance summary: {str(e)}")
+            return {
+                'performance_metrics': {'overall_optimization_score': 0.5},
+                'performance_insights': ['Performance summary generation failed'],
+                'optimization_effectiveness': 'unknown'
+            }
+
+    def _calculate_position_performance_score(self, position_results):
+        """Calculate position optimization performance score"""
+        try:
+            recommendations = position_results.get('position_recommendations', [])
+            if not recommendations:
+                return 0.3
+            
+            # Score based on number and quality of recommendations
+            total_improvement = sum(rec.get('improvement_potential', 0) for rec in recommendations)
+            high_priority_count = len([rec for rec in recommendations if rec.get('priority') == 'high'])
+            
+            score = min((total_improvement / 100) * 0.6 + (high_priority_count / 10) * 0.4, 1.0)
+            return score
+        except Exception:
+            return 0.3
+
+    def _calculate_content_performance_score(self, content_results):
+        """Calculate content optimization performance score"""
+        try:
+            recommendations = content_results.get('content_recommendations', [])
+            priority_score = content_results.get('priority_score', 0)
+            
+            if not recommendations:
+                return 0.3
+            
+            # Score based on number of opportunities and priority
+            opportunity_score = min(len(recommendations) / 20, 1.0)  # Normalize to max 20 opportunities
+            combined_score = (opportunity_score * 0.6) + (priority_score * 0.4)
+            
+            return combined_score
+        except Exception:
+            return 0.3
+
+    def _identify_key_achievements(self, results):
+        """Identify key achievements from optimization results"""
+        try:
+            achievements = []
+            
+            # Position optimization achievements
+            position_results = results.get('position_optimization', {})
+            if position_results.get('expected_improvement', 0) > 5:
+                achievements.append(f"Identified {position_results.get('expected_improvement', 0):.1f} average position improvement potential")
+            
+            # Content optimization achievements
+            content_results = results.get('content_optimization', {})
+            content_count = len(content_results.get('content_recommendations', []))
+            if content_count > 5:
+                achievements.append(f"Discovered {content_count} content optimization opportunities")
+            
+            # Budget optimization achievements
+            budget_results = results.get('budget_optimization', {})
+            expected_roi = budget_results.get('expected_roi', 0)
+            if expected_roi > 2.0:
+                achievements.append(f"Optimized budget allocation with {expected_roi:.1f}x expected ROI")
+            
+            return achievements if achievements else ["Optimization analysis completed successfully"]
+        except Exception:
+            return ["Optimization analysis completed"]
+
+    def _identify_improvement_areas(self, performance_metrics):
+        """Identify areas needing improvement"""
+        try:
+            improvement_areas = []
+            
+            threshold = 0.5
+            for metric, score in performance_metrics.items():
+                if metric != 'overall_optimization_score' and score < threshold:
+                    area_name = metric.replace('_score', '').replace('_', ' ').title()
+                    improvement_areas.append({
+                        'area': area_name,
+                        'current_score': score,
+                        'target_score': 0.7,
+                        'improvement_needed': 0.7 - score,
+                        'priority': 'high' if score < 0.3 else 'medium'
+                    })
+            
+            return improvement_areas
+        except Exception:
+            return []
+
+    def _generate_next_steps(self, performance_metrics):
+        """Generate next steps based on performance"""
+        try:
+            next_steps = []
+            
+            overall_score = performance_metrics.get('overall_optimization_score', 0.5)
+            
+            if overall_score < 0.4:
+                next_steps.extend([
+                    "Conduct comprehensive audit of current optimization strategies",
+                    "Prioritize quick wins with highest impact potential",
+                    "Establish baseline performance metrics"
+                ])
+            elif overall_score < 0.7:
+                next_steps.extend([
+                    "Implement high-priority optimization recommendations",
+                    "Monitor performance improvements closely",
+                    "Refine optimization strategies based on results"
+                ])
+            else:
+                next_steps.extend([
+                    "Maintain current optimization momentum",
+                    "Explore advanced optimization techniques",
+                    "Scale successful strategies across portfolio"
+                ])
+            
+            # Add specific next steps based on weak areas
+            worst_score = min(performance_metrics.values())
+            worst_area = min(performance_metrics, key=performance_metrics.get)
+            
+            if worst_score < 0.5:
+                area_name = worst_area.replace('_score', '').replace('_', ' ')
+                next_steps.append(f"Focus immediate attention on {area_name} improvements")
+            
+            return next_steps[:5]  # Limit to top 5 next steps
+        except Exception:
+            return ["Continue optimization efforts", "Monitor performance regularly"]
+
+    def _create_phased_implementation_plan(self, recommendations):
+        """Create phased implementation plan"""
+        try:
+            self.logger.info("Creating phased implementation plan")
+            
+            # Collect all recommendations from different optimization areas
+            all_recommendations = []
+            
+            if isinstance(recommendations, dict):
+                for optimization_type, rec_data in recommendations.items():
+                    if isinstance(rec_data, dict):
+                        if 'position_recommendations' in rec_data:
+                            for rec in rec_data['position_recommendations']:
+                                rec['optimization_type'] = 'position'
+                                all_recommendations.append(rec)
+                        if 'content_recommendations' in rec_data:
+                            for rec in rec_data['content_recommendations']:
+                                rec['optimization_type'] = 'content'
+                                all_recommendations.append(rec)
+                        if 'allocation_recommendations' in rec_data:
+                            for rec in rec_data['allocation_recommendations']:
+                                rec['optimization_type'] = 'budget'
+                                all_recommendations.append(rec)
+            
+            # Phase recommendations based on priority and effort
+            phases = {
+                'phase_1_quick_wins': {
+                    'timeline': '0-1 months',
+                    'focus': 'Low effort, high impact optimizations',
+                    'recommendations': []
+                },
+                'phase_2_medium_term': {
+                    'timeline': '1-3 months',
+                    'focus': 'Medium effort optimizations with good ROI',
+                    'recommendations': []
+                },
+                'phase_3_long_term': {
+                    'timeline': '3-6 months',
+                    'focus': 'High effort, strategic optimizations',
+                    'recommendations': []
+                }
+            }
+            
+            # Categorize recommendations into phases
+            for rec in all_recommendations[:30]:  # Limit to top 30 recommendations
+                priority = rec.get('priority', 'medium')
+                effort = rec.get('estimated_effort', 'medium')
+                
+                if priority == 'high' and effort in ['low', 'easy']:
+                    phases['phase_1_quick_wins']['recommendations'].append(rec)
+                elif priority in ['high', 'medium'] and effort == 'medium':
+                    phases['phase_2_medium_term']['recommendations'].append(rec)
+                else:
+                    phases['phase_3_long_term']['recommendations'].append(rec)
+            
+            # Create implementation timeline
+            implementation_timeline = []
+            for phase_name, phase_data in phases.items():
+                if phase_data['recommendations']:
+                    implementation_timeline.append({
+                        'phase': phase_name.replace('_', ' ').title(),
+                        'timeline': phase_data['timeline'],
+                        'focus': phase_data['focus'],
+                        'recommendation_count': len(phase_data['recommendations']),
+                        'key_activities': [rec.get('keyword', rec.get('topic', rec.get('category', 'optimization'))) 
+                                        for rec in phase_data['recommendations'][:3]],
+                        'expected_impact': self._estimate_phase_impact(phase_data['recommendations'])
+                    })
+            
+            # Generate resource requirements
+            resource_requirements = {
+                'content_team': sum(1 for rec in all_recommendations if rec.get('optimization_type') == 'content'),
+                'technical_team': sum(1 for rec in all_recommendations if rec.get('optimization_type') == 'position'),
+                'analytics_team': sum(1 for rec in all_recommendations if rec.get('optimization_type') == 'budget'),
+                'estimated_hours': len(all_recommendations) * 8,  # 8 hours per recommendation
+                'budget_required': len(all_recommendations) * 500  # $500 per recommendation
+            }
+            
+            implementation_plan = {
+                'phases': phases,
+                'implementation_timeline': implementation_timeline,
+                'resource_requirements': resource_requirements,
+                'total_recommendations': len(all_recommendations),
+                'implementation_duration': '6 months',
+                'success_metrics': [
+                    'recommendations_implemented',
+                    'performance_improvement',
+                    'roi_achievement',
+                    'timeline_adherence'
+                ],
+                'risk_factors': [
+                    'Resource availability',
+                    'Technical complexity',
+                    'Market changes',
+                    'Competitive responses'
+                ]
+            }
+            
+            return implementation_plan
+            
+        except Exception as e:
+            self.logger.error(f"Error creating implementation plan: {str(e)}")
+            return {
+                'phases': {'phase_1': {'timeline': '1-3 months', 'recommendations': []}},
+                'implementation_timeline': [],
+                'total_recommendations': 0
+            }
+
+    def _estimate_phase_impact(self, recommendations):
+        """Estimate impact of a phase of recommendations"""
+        try:
+            if not recommendations:
+                return 'low'
+            
+            # Count high priority recommendations
+            high_priority_count = len([rec for rec in recommendations if rec.get('priority') == 'high'])
+            total_count = len(recommendations)
+            
+            high_priority_ratio = high_priority_count / total_count if total_count > 0 else 0
+            
+            if high_priority_ratio > 0.6:
+                return 'high'
+            elif high_priority_ratio > 0.3:
+                return 'medium'
+            else:
+                return 'low'
+        except Exception:
+            return 'low'

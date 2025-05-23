@@ -765,3 +765,314 @@ class TrafficOptimizer:
             }
         except Exception:
             return {}
+        
+    def _define_optimization_problem(self, data, constraints=None):
+        """
+        Define the traffic optimization problem structure
+        
+        Args:
+            data: Input data for optimization
+            constraints: Optimization constraints (budget, resource limits, etc.)
+            
+        Returns:
+            Dict containing optimization problem definition
+        """
+        try:
+            self.logger.info("Defining traffic optimization problem")
+            
+            # Default constraints if none provided
+            if constraints is None:
+                constraints = {
+                    'max_budget': 10000.0,
+                    'min_roi': 1.5,
+                    'max_risk': 0.3,
+                    'time_horizon': 30  # days
+                }
+            
+            # Extract optimization variables from data
+            optimization_variables = self._extract_optimization_variables(data)
+            
+            # Define objective function
+            objective_function = {
+                'type': 'maximize_traffic',
+                'primary_metric': 'organic_traffic_increase',
+                'secondary_metrics': ['position_improvement', 'keyword_coverage'],
+                'weights': {
+                    'traffic_weight': 0.6,
+                    'position_weight': 0.3,
+                    'coverage_weight': 0.1
+                }
+            }
+            
+            # Define constraints
+            optimization_constraints = {
+                'budget_constraint': {
+                    'type': 'inequality',
+                    'bound': constraints.get('max_budget', 10000.0),
+                    'operator': '<=',
+                    'description': 'Total optimization budget limit'
+                },
+                'roi_constraint': {
+                    'type': 'inequality', 
+                    'bound': constraints.get('min_roi', 1.5),
+                    'operator': '>=',
+                    'description': 'Minimum return on investment'
+                },
+                'risk_constraint': {
+                    'type': 'inequality',
+                    'bound': constraints.get('max_risk', 0.3),
+                    'operator': '<=',
+                    'description': 'Maximum risk tolerance'
+                },
+                'resource_constraint': {
+                    'type': 'inequality',
+                    'bound': constraints.get('max_resources', 100),
+                    'operator': '<=',
+                    'description': 'Maximum resource allocation'
+                }
+            }
+            
+            # Define decision variables
+            decision_variables = self._define_decision_variables(optimization_variables, constraints)
+            
+            # Problem bounds and limits
+            variable_bounds = self._calculate_variable_bounds(data, constraints)
+            
+            # Optimization problem structure
+            problem_definition = {
+                'problem_type': 'mixed_integer_nonlinear',
+                'optimization_method': 'genetic_algorithm',
+                'objective': objective_function,
+                'variables': optimization_variables,
+                'decision_variables': decision_variables,
+                'constraints': optimization_constraints,
+                'bounds': variable_bounds,
+                'problem_size': {
+                    'n_variables': len(decision_variables),
+                    'n_constraints': len(optimization_constraints),
+                    'n_objectives': 1 + len(objective_function['secondary_metrics'])
+                },
+                'algorithm_parameters': {
+                    'population_size': min(100, max(20, len(decision_variables) * 5)),
+                    'max_generations': 50,
+                    'mutation_rate': 0.1,
+                    'crossover_rate': 0.8,
+                    'convergence_threshold': 0.001,
+                    'max_stagnation_generations': 10
+                },
+                'problem_metadata': {
+                    'data_shape': data.shape if hasattr(data, 'shape') else len(data),
+                    'constraints_provided': constraints,
+                    'creation_timestamp': datetime.now(),
+                    'expected_solve_time_minutes': self._estimate_solve_time(len(decision_variables))
+                }
+            }
+            
+            # Validate problem definition
+            validation_result = self._validate_optimization_problem(problem_definition)
+            problem_definition['validation'] = validation_result
+            
+            self.logger.info(f"Optimization problem defined: {len(decision_variables)} variables, {len(optimization_constraints)} constraints")
+            
+            return problem_definition
+            
+        except Exception as e:
+            self.logger.error(f"Error defining optimization problem: {str(e)}")
+            return {
+                'problem_type': 'undefined',
+                'error': str(e),
+                'fallback_objective': 'maximize_traffic',
+                'fallback_variables': ['keyword_focus', 'content_optimization'],
+                'fallback_constraints': constraints or {}
+            }
+
+    def _extract_optimization_variables(self, data):
+        """Extract variables that can be optimized from the data"""
+        try:
+            variables = {}
+            
+            # Keyword-level variables
+            if hasattr(data, 'columns') and 'Keyword' in data.columns:
+                variables['keywords'] = {
+                    'count': len(data),
+                    'avg_position': data.get('Position', pd.Series()).mean() if 'Position' in data.columns else 0,
+                    'traffic_potential': data.get('Traffic (%)', pd.Series()).sum() if 'Traffic (%)' in data.columns else 0,
+                    'search_volume': data.get('Volume', pd.Series()).sum() if 'Volume' in data.columns else 0
+                }
+            
+            # Content optimization variables
+            variables['content_optimization'] = {
+                'title_optimization': 1.0,
+                'meta_description_optimization': 1.0,
+                'content_length_optimization': 1.0,
+                'keyword_density_optimization': 1.0
+            }
+            
+            # Technical SEO variables
+            variables['technical_seo'] = {
+                'page_speed_optimization': 1.0,
+                'mobile_optimization': 1.0,
+                'schema_markup': 1.0,
+                'internal_linking': 1.0
+            }
+            
+            # Link building variables
+            variables['link_building'] = {
+                'authority_links': 1.0,
+                'relevant_links': 1.0,
+                'anchor_text_optimization': 1.0
+            }
+            
+            return variables
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting optimization variables: {str(e)}")
+            return {
+                'keywords': {'count': 0},
+                'content_optimization': {'default': 1.0},
+                'technical_seo': {'default': 1.0}
+            }
+
+    def _define_decision_variables(self, optimization_variables, constraints):
+        """Define decision variables for the optimization"""
+        try:
+            decision_vars = []
+            
+            # Budget allocation variables
+            decision_vars.extend([
+                {'name': 'content_budget', 'type': 'continuous', 'min': 0, 'max': constraints.get('max_budget', 10000) * 0.5},
+                {'name': 'technical_budget', 'type': 'continuous', 'min': 0, 'max': constraints.get('max_budget', 10000) * 0.3},
+                {'name': 'link_building_budget', 'type': 'continuous', 'min': 0, 'max': constraints.get('max_budget', 10000) * 0.4}
+            ])
+            
+            # Effort allocation variables (0-1 scale)
+            decision_vars.extend([
+                {'name': 'keyword_focus_effort', 'type': 'continuous', 'min': 0, 'max': 1},
+                {'name': 'content_quality_effort', 'type': 'continuous', 'min': 0, 'max': 1},
+                {'name': 'technical_seo_effort', 'type': 'continuous', 'min': 0, 'max': 1},
+                {'name': 'link_building_effort', 'type': 'continuous', 'min': 0, 'max': 1}
+            ])
+            
+            # Binary strategy variables
+            decision_vars.extend([
+                {'name': 'aggressive_strategy', 'type': 'binary', 'min': 0, 'max': 1},
+                {'name': 'conservative_strategy', 'type': 'binary', 'min': 0, 'max': 1},
+                {'name': 'balanced_strategy', 'type': 'binary', 'min': 0, 'max': 1}
+            ])
+            
+            return decision_vars
+            
+        except Exception as e:
+            self.logger.error(f"Error defining decision variables: {str(e)}")
+            return [
+                {'name': 'default_budget', 'type': 'continuous', 'min': 0, 'max': 10000},
+                {'name': 'default_effort', 'type': 'continuous', 'min': 0, 'max': 1}
+            ]
+
+    def _calculate_variable_bounds(self, data, constraints):
+        """Calculate realistic bounds for optimization variables"""
+        try:
+            bounds = {}
+            
+            # Calculate bounds based on data characteristics
+            if hasattr(data, 'shape'):
+                data_size = data.shape[0]
+                
+                # Traffic bounds based on current performance
+                current_traffic = data.get('Traffic (%)', pd.Series()).sum() if 'Traffic (%)' in data.columns else 100
+                bounds['traffic_increase'] = {
+                    'min': current_traffic * 1.05,  # At least 5% increase
+                    'max': current_traffic * 2.0,   # Up to 100% increase
+                    'current': current_traffic
+                }
+                
+                # Position improvement bounds
+                avg_position = data.get('Position', pd.Series()).mean() if 'Position' in data.columns else 50
+                bounds['position_improvement'] = {
+                    'min': max(1, avg_position - 20),  # Best case: improve by 20 positions
+                    'max': avg_position,               # Worst case: maintain current
+                    'current': avg_position
+                }
+                
+                # Budget bounds
+                bounds['budget_allocation'] = {
+                    'min': constraints.get('min_budget', 1000),
+                    'max': constraints.get('max_budget', 10000),
+                    'recommended': constraints.get('max_budget', 10000) * 0.7
+                }
+            
+            return bounds
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating variable bounds: {str(e)}")
+            return {
+                'traffic_increase': {'min': 100, 'max': 1000, 'current': 500},
+                'budget_allocation': {'min': 1000, 'max': 10000, 'recommended': 5000}
+            }
+
+    def _validate_optimization_problem(self, problem_definition):
+        """Validate the optimization problem definition"""
+        try:
+            validation_results = {
+                'is_valid': True,
+                'warnings': [],
+                'errors': [],
+                'recommendations': []
+            }
+            
+            # Check if objective is well-defined
+            if 'objective' not in problem_definition:
+                validation_results['errors'].append("No objective function defined")
+                validation_results['is_valid'] = False
+            
+            # Check if variables exist
+            if 'variables' not in problem_definition or not problem_definition['variables']:
+                validation_results['errors'].append("No optimization variables defined")
+                validation_results['is_valid'] = False
+            
+            # Check constraint feasibility
+            constraints = problem_definition.get('constraints', {})
+            for constraint_name, constraint in constraints.items():
+                if constraint.get('bound') is None:
+                    validation_results['warnings'].append(f"Constraint {constraint_name} has no bound defined")
+            
+            # Check problem size
+            problem_size = problem_definition.get('problem_size', {})
+            n_variables = problem_size.get('n_variables', 0)
+            
+            if n_variables > 100:
+                validation_results['warnings'].append("Large problem size may require extended solve time")
+            elif n_variables < 2:
+                validation_results['warnings'].append("Very few variables may limit optimization effectiveness")
+            
+            # Recommendations
+            if validation_results['is_valid']:
+                validation_results['recommendations'].append("Problem definition appears valid and ready for optimization")
+            
+            return validation_results
+            
+        except Exception as e:
+            return {
+                'is_valid': False,
+                'errors': [f"Validation error: {str(e)}"],
+                'warnings': [],
+                'recommendations': ['Review problem definition']
+            }
+
+    def _estimate_solve_time(self, n_variables):
+        """Estimate optimization solve time based on problem complexity"""
+        try:
+            # Base time estimation (minutes)
+            base_time = 2.0
+            
+            # Scale with number of variables
+            complexity_factor = max(1.0, n_variables / 10)
+            
+            # Estimated time in minutes
+            estimated_time = base_time * complexity_factor
+            
+            return min(estimated_time, 30.0)  # Cap at 30 minutes
+            
+        except Exception:
+            return 5.0  # Default 5 minutes
+
