@@ -117,6 +117,7 @@ class PipelineOrchestrator:
         # Orchestration state
         self.pipeline_executions = {}
         self.shared_data = {}
+        self.pipeline_status = {} # For the new status tracking methods
         self.execution_graph = self._build_execution_graph()
         
         # Performance tracking
@@ -237,32 +238,33 @@ class PipelineOrchestrator:
                 self.logger.info("Executing pre-execution setup")
                 
                 # Validate configuration
-                config_validation = self._validate_configuration()
+                is_config_valid = self._validate_configuration()
+                config_validation_details = {
+                    'valid': is_config_valid,
+                    'message': 'Configuration valid.' if is_config_valid else 'Configuration invalid or validation method not fully implemented.'
+                }
                 
                 # Validate data availability
                 data_availability = self._validate_data_availability(date_range)
                 
                 # Validate pipeline dependencies
                 dependency_validation = self._validate_pipeline_dependencies(pipeline_subset)
-                
                 # Setup execution environment
                 environment_setup = self._setup_execution_environment()
-                
                 # Initialize shared data structures
                 self._initialize_shared_data()
-                
                 # Clear cache if force refresh
                 if force_refresh:
                     self._clear_pipeline_caches()
                 
                 setup_result = {
-                    'config_validation': config_validation,
+                    'config_validation': config_validation_details,
                     'data_availability': data_availability,
                     'dependency_validation': dependency_validation,
                     'environment_setup': environment_setup,
                     'setup_timestamp': datetime.now(),
                     'setup_success': all([
-                        config_validation['valid'],
+                        is_config_valid,
                         data_availability['available'],
                         dependency_validation['valid'],
                         environment_setup['success']
@@ -406,8 +408,15 @@ class PipelineOrchestrator:
                 else:
                     raise ValueError(f"Unsupported execution mode: {execution_mode}")
                 
-                # Update execution status
-                self._update_pipeline_execution_status(pipeline_results)
+                # Update the new self.pipeline_status using the comprehensive self.pipeline_executions
+                for p_name in enabled_pipelines:
+                    if p_name in self.pipeline_executions:
+                        execution_obj = self.pipeline_executions[p_name]
+                        self._update_pipeline_execution_status(p_name, execution_obj.status.value)
+                    else:
+                        # This case implies a pipeline was enabled but not initialized in pipeline_executions
+                        # Or could be marked as SKIPPED if logic dictates
+                        self._update_pipeline_execution_status(p_name, PipelineStatus.SKIPPED.value)
                 
                 self.logger.info("Pipeline execution orchestration completed")
                 return pipeline_results
@@ -599,7 +608,7 @@ class PipelineOrchestrator:
                 }
                 
                 # Calculate integration quality score
-                integration_quality = self._calculate_integration_quality(pipeline_results)
+                integration_quality = self._calculate_integration_quality()
                 
                 # Generate cross-pipeline insights
                 cross_insights = self._generate_cross_pipeline_insights(integrated_data)

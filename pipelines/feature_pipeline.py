@@ -403,41 +403,111 @@ class FeaturePipeline:
         self,
         optimized_features: FeatureSelectionResult,
         target_column: Optional[str]
-    ) -> FeatureValidationResult:
-        """Execute feature validation using FeatureValidator"""
+    ) -> Any: # Changed return type
+        """Execute feature validation by calling _validate_features helper."""
         try:
             with self.performance_tracker.track_block("feature_validation"):
                 self.logger.info("Executing feature validation")
                 
                 if not optimized_features.selected_features:
-                    return FeatureValidationResult({}, {}, {}, {}, {}, {})
+                    self.logger.warning("No selected features to validate.")
+                    return type('FeatureValidationResult', (), {
+                        'is_valid': False,
+                        'quality_score': 0.0,
+                        'issues': ["No selected features to validate"],
+                        'recommendations': [],
+                        'validation_summary': {
+                            'total_features': 0,
+                            'quality_score': 0.0,
+                            'critical_issues': 0,
+                            'error': "No selected features available for validation.",
+                            'feature_statistics': {}
+                        }
+                    })()
                 
                 # Get selected features data
                 features_data = optimized_features.feature_importance_matrix
                 
                 if features_data.empty:
-                    return FeatureValidationResult({}, {}, {}, {}, {}, {})
+                    self.logger.warning("Feature importance matrix is empty, cannot validate.")
+                    return type('FeatureValidationResult', (), {
+                        'is_valid': False,
+                        'quality_score': 0.0,
+                        'issues': ["Feature importance matrix is empty"],
+                        'recommendations': [],
+                        'validation_summary': {
+                            'total_features': 0,
+                            'quality_score': 0.0,
+                            'critical_issues': 0,
+                            'error': "Feature importance matrix is empty.",
+                            'feature_statistics': {}
+                        }
+                    })()
                 
-                # Use comprehensive feature validation from refactored module
-                validation_result = self.feature_validator.comprehensive_feature_validation(
-                    features_df=features_data,
-                    target_column=target_column,
-                    feature_metadata=optimized_features.selection_metadata,
-                    config=None  # Use default config
-                )
+                # Call the new helper method for validation
+                validation_result = self._validate_features(features_data)
                 
                 self.logger.info("Feature validation completed")
                 return validation_result
                 
         except Exception as e:
-            self.logger.error(f"Error in feature validation: {str(e)}")
-            return FeatureValidationResult({}, {}, {}, {}, {}, {})
+            self.logger.error(f"Error in _execute_feature_validation: {str(e)}")
+            return type('FeatureValidationResult', (), {
+                'is_valid': False,
+                'quality_score': 0.0,
+                'issues': [f"Error during feature validation execution: {str(e)}"],
+                'recommendations': ["Investigate error in _execute_feature_validation"],
+                'validation_summary': {'error': str(e), 'source': '_execute_feature_validation'},
+                'feature_statistics': {}
+            })()
+
+    # New method as per user request
+    def _validate_features(self, features_df: pd.DataFrame) -> Any:
+        """Validate engineered features using DataValidator."""
+        try:
+            # Use the existing validation utilities
+            inner_validation_result = self.data_validator.validate_seo_dataset(features_df, 'positions')
+            
+            # Attempt to get per-feature statistics if available from inner_validation_result.
+            # This assumes 'feature_statistics' is the attribute name on the object returned by validate_seo_dataset.
+            # If not, it defaults to an empty dict.
+            feature_statistics = getattr(inner_validation_result, 'feature_statistics', {})
+            if not isinstance(feature_statistics, dict): # Ensure it's a dict
+                 feature_statistics = {}
+            # Create a simple validation result object
+            return type('FeatureValidationResult', (), {
+                'is_valid': inner_validation_result.quality_score > 0.7,
+                'quality_score': inner_validation_result.quality_score,
+                'issues': inner_validation_result.issues,
+                'recommendations': [
+                    "Review features with low variance",
+                    "Check for data leakage in temporal features",
+                    "Validate feature distributions"
+                ],
+                'validation_summary': {
+                    'total_features': len(features_df.columns),
+                    'quality_score': inner_validation_result.quality_score,
+                    'critical_issues': inner_validation_result.critical_issues
+                },
+                'feature_statistics': feature_statistics
+            })()
+
+        except Exception as e:
+            self.logger.error(f"Error in _validate_features: {str(e)}")
+            return type('FeatureValidationResult', (), {
+                'is_valid': False,
+                'quality_score': 0.0,
+                'issues': [str(e)],
+                'recommendations': ["Fix validation errors in _validate_features"],
+                'validation_summary': {'error': str(e), 'source': '_validate_features'},
+                'feature_statistics': {} # Ensure this key exists even on error
+            })()
 
     async def _create_feature_catalog(
         self,
         optimized_features: FeatureSelectionResult,
-        validation_results: FeatureValidationResult
-    ) -> Dict[str, Any]:
+        validation_results: Any # Changed type hint
+    ) -> Dict[str, Any]: # Added return type hint for clarity
         """Create comprehensive feature catalog"""
         try:
             with self.performance_tracker.track_block("feature_catalog_creation"):
@@ -452,7 +522,7 @@ class FeaturePipeline:
                         'feature_type': self._determine_feature_type(feature),
                         'importance_score': optimized_features.feature_scores.get(feature, 0),
                         'ranking': optimized_features.feature_rankings.get(feature, 999),
-                        'quality_metrics': validation_results.quality_metrics.feature_statistics.get(feature, {}),
+                        'quality_metrics': getattr(validation_results, 'feature_statistics', {}).get(feature, {}),
                         'validation_status': 'validated',
                         'creation_timestamp': datetime.now(),
                         'selection_metadata': optimized_features.selection_metadata,
@@ -504,11 +574,7 @@ class FeaturePipeline:
                         'advanced_features_count': len(all_results.get('advanced_features', {}).get('advanced_features', pd.DataFrame()).columns),
                         'final_selected_features': len(all_results.get('optimized_features', FeatureSelectionResult([], {}, {}, {}, [], [], {}, pd.DataFrame())).selected_features)
                     },
-                    'quality_assessment': {
-                        'overall_quality_score': all_results.get('validation_results', FeatureValidationResult({}, {}, {}, {}, {}, {})).quality_metrics.overall_quality_score if hasattr(all_results.get('validation_results', FeatureValidationResult({}, {}, {}, {}, {}, {})).quality_metrics, 'overall_quality_score') else 0,
-                        'data_preparation_quality': all_results.get('prepared_data', {}).get('validation_report', type('obj', (object,), {'quality_score': 0})).quality_score,
-                        'feature_catalog_completeness': 1.0 if all_results.get('feature_catalog') else 0.0
-                    },
+                    'quality_assessment': self._get_quality_assessment(all_results),
                     'recommendations': self._generate_feature_recommendations(all_results),
                     'detailed_results': all_results,
                     'processing_metadata': {
@@ -524,6 +590,19 @@ class FeaturePipeline:
         except Exception as e:
             self.logger.error(f"Error integrating feature results: {str(e)}")
             return all_results
+
+    def _get_quality_assessment(self, all_results: Dict[str, Any]) -> Dict[str, float]:
+        """Helper to compute quality assessment metrics for integration."""
+        validation_res_obj = all_results.get('validation_results')
+        overall_quality = 0.0
+        if validation_res_obj:
+            overall_quality = getattr(validation_res_obj, 'quality_score', 0.0)
+        
+        return {
+            'overall_quality_score': overall_quality,
+            'data_preparation_quality': getattr(all_results.get('prepared_data', {}).get('validation_report'), 'quality_score', 0.0),
+            'feature_catalog_completeness': 1.0 if all_results.get('feature_catalog') else 0.0
+        }
 
     async def _export_feature_results(self, integrated_results: Dict[str, Any]) -> Dict[str, bool]:
         """Export comprehensive feature engineering results"""

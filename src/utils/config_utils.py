@@ -408,21 +408,39 @@ class PathManager:
     and path validation across different environments.
     """
 
-    def __init__(self, base_path: Optional[str] = None, logger: Optional[logging.Logger] = None):
+    def __init__(self, base_path: Optional[str] = None, logger: Optional[logging.Logger] = None, config_manager: Optional['ConfigManager'] = None):
         self.logger = logger or logging.getLogger(__name__)
+        self.config_manager = config_manager
         self.base_path = Path(base_path) if base_path else Path.cwd()
         self.path_cache = {}
+        
+        # Load paths from config if available
+        if self.config_manager:
+            try:
+                paths_config = self.config_manager.get_config('paths')
+                if paths_config:
+                    # Use configured base path if not explicitly provided
+                    if not base_path and 'project_root' in paths_config:
+                        self.base_path = Path(paths_config['project_root'])
+                    # Store configured paths for easy access
+                    self._configured_paths = paths_config
+            except Exception as e:
+                self.logger.warning(f"Could not load paths from config: {str(e)}")
+                self._configured_paths = {}
+        else:
+            self._configured_paths = {}
         
         # Standard directory structure
         self.standard_dirs = {
             'data': 'data',
-            'reports': 'reports',
+            'reports': 'reports', 
             'logs': 'logs',
             'config': 'config',
             'cache': 'cache',
             'exports': 'exports',
             'temp': 'temp'
         }
+
 
     def get_data_path(self, subfolder: Optional[str] = None) -> Path:
         """Get data directory path with optional subfolder."""

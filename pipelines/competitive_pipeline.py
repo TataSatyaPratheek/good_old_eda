@@ -774,6 +774,103 @@ class CompetitivePipeline:
             details={"error": str(error)}
         )
 
+    # New feature methods (stubs)
+    def _analyze_competitive_intensity(self, primary_data: pd.DataFrame, competitor_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+        """Analyze competitive intensity"""
+        try:
+            # primary_data is available if needed for more complex analysis
+            return {
+                'intensity_score': 0.5,  # Example value
+                'key_competitors': list(competitor_data.keys()),
+                'competitive_pressure': 'medium'  # Example value
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing competitive intensity: {str(e)}")
+            return {}
+
+    def _analyze_content_gaps(self, primary_data: pd.DataFrame, competitor_data: Dict[str, pd.DataFrame]) -> List[Dict[str, Any]]:
+        """Analyze content gaps"""
+        try:
+            # primary_data and competitor_data are available for analysis
+            # Should return a list of dictionaries, each representing a content gap
+            return []  # Placeholder for List[Dict[str, Any]]
+        except Exception as e:
+            self.logger.error(f"Error analyzing content gaps: {str(e)}")
+            return []
+
+    def _analyze_growth_trajectories(self, primary_data: pd.DataFrame, competitor_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+        """Analyze growth trajectories"""
+        try:
+            # primary_data and competitor_data are available for analysis
+            return {
+                'growth_patterns': {},
+                'trajectory_analysis': {},
+                'future_projections': {}
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing growth trajectories: {str(e)}")
+            return {}
+
+    def _calculate_threat_scores(self, positioning_analysis: Dict[str, Any], prepared_data: Dict[str, Any]) -> Dict[str, float]:
+        """Calculate threat scores for competitors"""
+        try:
+            # positioning_analysis and prepared_data (which contains competitor_data) are available
+            threat_scores = {}
+            competitor_names = prepared_data.get('competitor_data', {}).keys()
+            for competitor in competitor_names:
+                threat_scores[competitor] = 0.5  # Default medium threat
+            return threat_scores
+        except Exception as e:
+            self.logger.error(f"Error calculating threat scores: {str(e)}")
+            return {}
+
+    def _extract_key_competitive_insights(self, all_analysis: Dict[str, Any]) -> List[str]:
+        """Extract key competitive insights"""
+        try:
+            # all_analysis contains all processed stages
+            return [
+                "Competitive landscape analysis completed (stub insight)",
+                "Key opportunities identified (stub insight)",
+                "Threat assessment performed (stub insight)"
+            ]
+        except Exception as e:
+            self.logger.error(f"Error extracting insights: {str(e)}")
+            return []
+
+    def _generate_short_term_recommendations(self, intelligence_synthesis: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate short-term recommendations"""
+        try:
+            # intelligence_synthesis is available for generating recommendations
+            return [
+                {
+                    'recommendation': 'Monitor competitor movements (stub recommendation)',
+                    'priority': 'high',
+                    'timeframe': 'short-term'
+                }
+            ]
+        except Exception as e:
+            self.logger.error(f"Error generating recommendations: {str(e)}")
+            return []
+
+    def _create_executive_dashboard_metrics(self, intelligence_synthesis: Dict[str, Any]) -> Dict[str, Any]:
+        """Create executive dashboard metrics"""
+        try:
+            # intelligence_synthesis is available for dashboard creation
+            return {
+                'dashboard_data_summary': { # Changed key to avoid direct full data copy
+                    'executive_summary_points': intelligence_synthesis.get('executive_summary', {}).get('points', []),
+                    'key_insight_count': len(intelligence_synthesis.get('key_insights', []))
+                },
+                'key_metrics': {
+                     'overall_opportunity_score': intelligence_synthesis.get('detailed_analysis', {}).get('gap_analysis', {}).get('opportunity_score', 0.0),
+                     'market_position_estimate': intelligence_synthesis.get('executive_summary', {}).get('market_position', 'unknown')
+                },
+                'visualizations_needed': ["Market Share Pie Chart", "Competitive Positioning Matrix"] # Placeholder names
+            }
+        except Exception as e:
+            self.logger.error(f"Error creating dashboard metrics: {str(e)}")
+            return {}
+
     # Helper methods
     def _determine_analysis_timeframe(self, primary_data, competitor_data):
         """Determine analysis timeframe from data"""

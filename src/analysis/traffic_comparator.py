@@ -6,7 +6,7 @@ Advanced traffic analysis, comparison metrics, and competitive traffic assessmen
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional, Tuple, Union, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 import logging
 
@@ -735,3 +735,117 @@ class TrafficComparator:
     def get_performance_summary(self) -> Dict[str, Any]:
         """Get performance summary from tracker."""
         return self.performance_tracker.get_performance_summary()
+
+    @timing_decorator()
+    def compare_traffic_performance(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame],
+        traffic_column: str = 'Traffic (%)',
+        keyword_column: str = 'Keyword',
+        comparison_metrics: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Compare traffic performance across Lenovo and its competitors.
+
+        Args:
+            lenovo_data: DataFrame for Lenovo's traffic data.
+            competitor_data: Dictionary of DataFrames for competitors' traffic data.
+            traffic_column: Name of the column containing traffic data.
+            keyword_column: Name of the column containing keyword data.
+            comparison_metrics: Optional list of specific metrics to focus on
+                                (e.g., ['total_traffic', 'traffic_growth', 'avg_traffic_per_keyword']).
+                                'traffic_efficiency' will be mapped to 'avg_traffic_per_keyword'.
+
+        Returns:
+            A dictionary containing comparative traffic performance analysis.
+        """
+        try:
+            with self.performance_tracker.track_block("compare_traffic_performance"):
+                all_metrics_objects: Dict[str, TrafficMetrics] = {}
+
+                self.logger.info("Calculating traffic metrics for Lenovo.")
+                lenovo_metrics = self.calculate_traffic_metrics(
+                    lenovo_data, traffic_column=traffic_column, keyword_column=keyword_column
+                )
+                all_metrics_objects['lenovo'] = lenovo_metrics
+
+                for competitor_name, comp_df in competitor_data.items():
+                    self.logger.info(f"Calculating traffic metrics for competitor: {competitor_name}.")
+                    comp_metrics = self.calculate_traffic_metrics(
+                        comp_df, traffic_column=traffic_column, keyword_column=keyword_column
+                    )
+                    all_metrics_objects[competitor_name] = comp_metrics
+                
+                if not all_metrics_objects:
+                    self.logger.warning("No traffic metrics could be calculated for any entity.")
+                    return {}
+
+                total_analyzed_traffic = sum(
+                    metrics.total_traffic for metrics in all_metrics_objects.values() if metrics
+                )
+                
+                market_shares = {
+                    name: safe_divide(metrics.total_traffic, total_analyzed_traffic, 0.0)
+                    for name, metrics in all_metrics_objects.items() if metrics
+                }
+
+                competitor_total_traffics = [
+                    m.total_traffic for name, m in all_metrics_objects.items() 
+                    if name != 'lenovo' and m
+                ]
+                average_competitor_total_traffic = np.mean(competitor_total_traffics) if competitor_total_traffics else 0.0
+
+                overall_summary = {
+                    'lenovo_total_traffic': lenovo_metrics.total_traffic if lenovo_metrics else 0.0,
+                    'average_competitor_total_traffic': average_competitor_total_traffic,
+                    'total_market_traffic_analyzed': total_analyzed_traffic,
+                    'competitor_count': len(competitor_data)
+                }
+
+                rankings = self._rank_competitors_by_traffic(all_metrics_objects)
+                lenovo_rank = rankings.get('lenovo', 0)
+                total_entities_ranked = len(rankings)
+                
+                relative_position_label = "N/A"
+                if total_entities_ranked > 0 and lenovo_rank > 0:
+                    if lenovo_rank == 1:
+                        relative_position_label = "Leading"
+                    elif lenovo_rank <= total_entities_ranked / 3:
+                        relative_position_label = "Strong Performer"
+                    elif lenovo_rank <= 2 * total_entities_ranked / 3:
+                        relative_position_label = "Competitive"
+                    else:
+                        relative_position_label = "Lagging"
+                
+                market_share_and_ranking = {
+                    'market_shares': market_shares,
+                    'rankings': rankings,
+                    'lenovo_rank': lenovo_rank,
+                    'lenovo_relative_position_label': relative_position_label,
+                    'total_entities_ranked': total_entities_ranked
+                }
+
+                default_kpis = ['total_traffic', 'traffic_growth', 'traffic_volatility', 'avg_traffic_per_keyword']
+                kpis_to_extract = comparison_metrics if comparison_metrics else default_kpis
+                
+                processed_kpis = [('avg_traffic_per_keyword' if kpi == 'traffic_efficiency' else kpi) for kpi in kpis_to_extract]
+
+                lenovo_kpi_values = {kpi: getattr(lenovo_metrics, kpi, None) for kpi in processed_kpis} if lenovo_metrics else {kpi: None for kpi in processed_kpis}
+
+                competitor_metrics_list = [m for name, m in all_metrics_objects.items() if name != 'lenovo' and m]
+                competitor_kpi_avg_values = {}
+                if competitor_metrics_list:
+                    for kpi in processed_kpis:
+                        values = [getattr(comp_m, kpi, None) for comp_m in competitor_metrics_list]
+                        valid_values = [v for v in values if isinstance(v, (int, float))]
+                        competitor_kpi_avg_values[kpi] = np.mean(valid_values) if valid_values else None
+                
+                key_performance_indicators = {'selected_metrics': processed_kpis, 'lenovo': lenovo_kpi_values, 'competitors_average': competitor_kpi_avg_values}
+
+                self.logger.info("Traffic performance comparison completed.")
+                return {'overall_performance_summary': overall_summary, 'market_share_and_ranking': market_share_and_ranking, 'key_performance_indicators': key_performance_indicators, 'detailed_metrics_by_entity': all_metrics_objects}
+
+        except Exception as e:
+            self.logger.error(f"Error comparing traffic performance: {str(e)}", exc_info=True)
+            return {'overall_performance_summary': {}, 'market_share_and_ranking': {}, 'key_performance_indicators': {}, 'detailed_metrics_by_entity': {}}

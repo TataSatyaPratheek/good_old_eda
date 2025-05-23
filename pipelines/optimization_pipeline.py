@@ -205,7 +205,7 @@ class OptimizationPipeline:
                 )
                 
                 # Define optimization scope
-                optimization_scope = self._define_optimization_scope(
+                optimization_scope = await self._define_optimization_scope(
                     cleaned_primary, self.optimization_config
                 )
                 
@@ -308,7 +308,7 @@ class OptimizationPipeline:
                 )
                 
                 # Position improvement optimization
-                position_improvements = self._optimize_position_improvements(
+                position_improvements = await self._optimize_position_improvements(
                     position_predictions, traffic_optimization
                 )
                 
@@ -411,7 +411,7 @@ class OptimizationPipeline:
                 competitive_data = prepared_data.get('competitive_data', {})
                 
                 # Content gap optimization
-                content_gaps = self._optimize_content_gaps(
+                content_gaps = await self._optimize_content_gaps(
                     primary_data, competitive_data
                 )
                 
@@ -460,7 +460,7 @@ class OptimizationPipeline:
                 self.logger.info("Executing resource allocation optimization")
                 
                 # Budget allocation optimization
-                budget_optimization = self._optimize_budget_allocation(
+                budget_optimization = await self._optimize_budget_allocation(
                     traffic_optimization, position_optimization
                 )
                 
@@ -506,7 +506,7 @@ class OptimizationPipeline:
                 self.logger.info("Executing portfolio optimization")
                 
                 # Portfolio risk optimization
-                risk_optimization = self._optimize_portfolio_risk(optimization_results)
+                risk_optimization = await self._optimize_portfolio_risk(optimization_results)
                 
                 # Portfolio diversification optimization
                 diversification_optimization = self._optimize_portfolio_diversification(
@@ -553,7 +553,7 @@ class OptimizationPipeline:
                 executive_summary = self._create_optimization_executive_summary(all_optimizations)
                 
                 # Optimization performance summary
-                performance_summary = self._create_optimization_performance_summary(all_optimizations)
+                performance_summary = await self._create_optimization_performance_summary(all_optimizations)
                 
                 # Optimization recommendations synthesis
                 recommendations_synthesis = self._synthesize_optimization_recommendations(all_optimizations)
@@ -598,7 +598,7 @@ class OptimizationPipeline:
                 self.logger.info("Creating optimization implementation plan")
                 
                 # Phase-based implementation plan
-                phased_plan = self._create_phased_implementation_plan(integrated_optimization)
+                phased_plan = await self._create_phased_implementation_plan(integrated_optimization)
                 
                 # Resource requirements planning
                 resource_planning = self._plan_implementation_resources(integrated_optimization)

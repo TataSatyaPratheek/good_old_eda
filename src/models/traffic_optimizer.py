@@ -26,6 +26,7 @@ class OptimizationConfig:
     optimization_objective: str = 'traffic'
     budget_constraint: float = 10000.0
     max_bid_limit: float = 50.0
+    max_bid: float = 10.0 # Specific max bid for bid strategy optimization
     target_roi: float = 2.0
     risk_tolerance: float = 0.3
     time_horizon_days: int = 30
@@ -212,73 +213,37 @@ class TrafficOptimizer:
     @timing_decorator()
     def optimize_bid_strategy(
         self,
-        keyword_data: pd.DataFrame,
-        budget_allocation: Dict[str, float],
-        target_metrics: Dict[str, float] = None,
-        competitive_data: Optional[pd.DataFrame] = None
+        performance_data: pd.DataFrame,
+        config: Optional[OptimizationConfig] = None
     ) -> Dict[str, Any]:
         """
-        Optimize bidding strategy for keyword portfolios using advanced algorithms.
+        Optimize bid strategy.
         
         Args:
-            keyword_data: Keyword performance data
-            budget_allocation: Budget allocation by keyword
-            target_metrics: Target performance metrics
-            competitive_data: Competitive bidding data
+            performance_data: DataFrame with performance data.
+            config: Optimization configuration.
             
         Returns:
-            Optimized bidding strategy
+            Dictionary with optimized bid strategy components.
         """
         try:
             with self.performance_tracker.track_block("optimize_bid_strategy"):
-                if target_metrics is None:
-                    target_metrics = {'target_roi': 2.0, 'target_position': 5.0}
-                
-                # Clean data using DataProcessor
-                cleaned_data = self.data_processor.clean_seo_data(keyword_data)
-                
-                # Use OptimizationHelper for bid optimization
-                bid_optimization = self.optimization_helper.find_optimal_bid_strategy(
-                    cleaned_data,
-                    target_metric='traffic',
-                    constraints={'max_cpc': 50.0, 'total_budget': sum(budget_allocation.values())}
-                )
-                
-                # Enhanced bid strategy with competitive analysis
-                if competitive_data is not None:
-                    competitive_insights = self._analyze_competitive_bidding(
-                        cleaned_data, competitive_data
-                    )
-                    bid_optimization['competitive_insights'] = competitive_insights
-                
-                # Calculate bid efficiency metrics using statistical analysis
-                efficiency_metrics = self._calculate_bid_efficiency(
-                    bid_optimization, cleaned_data, target_metrics
-                )
-                
-                # Generate bid recommendations using optimization principles
-                bid_recommendations = self._generate_bid_recommendations(
-                    bid_optimization, efficiency_metrics, target_metrics
-                )
-                
-                # Portfolio-level optimization
-                portfolio_optimization = self._optimize_bid_portfolio(
-                    bid_optimization, budget_allocation, target_metrics
-                )
-                
-                strategy_result = {
-                    'optimal_bids': bid_optimization.get('optimal_bids', {}),
-                    'expected_performance': bid_optimization.get('expected_performance', 0),
-                    'efficiency_metrics': efficiency_metrics,
-                    'competitive_insights': bid_optimization.get('competitive_insights', {}),
-                    'portfolio_optimization': portfolio_optimization,
-                    'recommendations': bid_recommendations,
-                    'risk_metrics': self._calculate_bid_risk_metrics(bid_optimization, cleaned_data)
+                effective_config = config or self.default_config
+
+                # The provided snippet's logic is implemented here.
+                # Note: performance_data, effective_config.max_bid, and
+                # effective_config.budget_constraint are not explicitly used in
+                # the returned dictionary by the snippet's logic, but are available.
+                # The 'target_roi' is taken from the configuration.
+
+                # self.logger.info(f"Optimizing bid strategy for {len(performance_data)} items.")
+                # Add actual optimization logic using performance_data and effective_config here.
+
+                return {
+                    'optimized_bids': {}, # Placeholder as per snippet
+                    'expected_performance': {}, # Placeholder as per snippet
+                    'target_roi': effective_config.target_roi
                 }
-                
-                self.logger.info(f"Bid strategy optimization completed for {len(cleaned_data)} keywords")
-                return strategy_result
-                
         except Exception as e:
             self.logger.error(f"Error in bid strategy optimization: {str(e)}")
             return {}

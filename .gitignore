@@ -1,2 +1,6 @@
 /data
 *__pycache__/
+backups/
+logs/
+reports/
+audit_trail.jsonl

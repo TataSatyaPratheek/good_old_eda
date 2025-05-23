@@ -659,6 +659,191 @@ class CompetitiveAnalyzer:
             self.logger.error(f"Error exporting competitive analysis results: {str(e)}")
             return {}
 
+    # Detailed Analysis Helper Methods
+    def _analyze_competitive_positioning(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame],
+        competitor_metrics: Dict[str, CompetitorMetrics]
+    ) -> Dict[str, Any]:
+        """Analyze competitive positioning using metrics and market data."""
+        try:
+            self.logger.info("Analyzing competitive positioning.")
+            # Placeholder: actual analysis would involve comparing metrics, market share, etc.
+            # For example, identify Lenovo's strengths based on competitor_metrics
+            # This is a simplified example; real analysis would be more complex.
+            
+            # Assuming Lenovo's own metrics would be derived or passed similarly
+            # For this example, let's use a placeholder for Lenovo's strength
+            lenovo_strength_score = 0.6  # Placeholder value
+            
+            avg_competitor_strength = 0.0
+            if competitor_metrics:
+                strengths = [m.competitive_strength for m in competitor_metrics.values() if m.competitive_strength is not None]
+                if strengths:
+                    avg_competitor_strength = np.mean(strengths)
+
+            position = 'middle_pack'
+            if lenovo_strength_score > avg_competitor_strength + 0.15: # Thresholds are examples
+                position = 'market_leader'
+            elif lenovo_strength_score < avg_competitor_strength - 0.15:
+                position = 'challenger'
+            elif avg_competitor_strength == 0 and lenovo_strength_score > 0: # No competitors or no data for them
+                position = 'dominant_player_in_niche'
+
+            return {
+                'market_position_estimate': position,
+                'lenovo_assumed_strength_score': lenovo_strength_score,
+                'average_competitor_strength': float(avg_competitor_strength),
+                'key_competitive_advantages': ["Strong brand recognition (example)", "Wide product portfolio (example)"], # Placeholder
+                'key_competitive_threats': ["Aggressive pricing by new entrants (example)", "Rapid technological shifts (example)"], # Placeholder
+                'overall_positioning_score': self.stats_calculator.normalize_value(lenovo_strength_score, 0, 1) # Example
+            }
+        except Exception as e:
+            self.logger.error(f"Error in competitive positioning analysis: {str(e)}")
+            return {
+                'market_position_estimate': 'unknown',
+                'key_competitive_advantages': [],
+                'key_competitive_threats': [],
+                'overall_positioning_score': 0.0,
+                'error': f"Analysis failed: {str(e)}"
+            }
+
+    def _analyze_opportunities(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame],
+        analysis_config: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Analyze competitive opportunities based on overall data and market context."""
+        try:
+            self.logger.info("Analyzing competitive opportunities.")
+            # Placeholder: This should identify broader opportunities.
+            # e.g., new market segments, content themes, partnership opportunities
+            
+            lenovo_keywords = set(lenovo_data['Keyword'].str.lower())
+            all_comp_keywords = set()
+            for df in competitor_data.values():
+                all_comp_keywords.update(df['Keyword'].str.lower())
+            
+            potential_new_keywords = list(all_comp_keywords - lenovo_keywords)[:5] # Top 5 for example
+
+            opportunities_list = [
+                {
+                    'type': 'content_expansion',
+                    'description': 'Expand content around new product categories based on market demand.',
+                    'priority': 'high',
+                    'estimated_impact': 'high',
+                    'supporting_data': {'example_metric': "Growing search volume for 'eco-friendly laptops'"}
+                }
+            ]
+            if potential_new_keywords:
+                 opportunities_list.append({
+                    'type': 'emerging_keyword_cluster',
+                    'description': f'Target emerging keywords where competitors are present: {", ".join(potential_new_keywords)}',
+                    'priority': 'medium',
+                    'estimated_impact': 'medium'
+                })
+
+            return {
+                'identified_opportunities': opportunities_list,
+                'opportunity_summary': f"{len(opportunities_list)} strategic opportunities identified for growth.",
+                'analysis_parameters': analysis_config if analysis_config else "Default parameters used"
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing opportunities: {str(e)}")
+            return {
+                'identified_opportunities': [],
+                'opportunity_summary': "Error during opportunity analysis.",
+                'error': f"Analysis failed: {str(e)}"
+            }
+
+    def _analyze_cross_competitor_trends(
+        self,
+        competitor_data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, Any]:
+        """Analyze cross-competitor trends using time series and statistical methods."""
+        try:
+            self.logger.info("Analyzing cross-competitor trends.")
+            overall_traffic_trends = {}
+            position_volatility_comparison = {}
+            
+            for comp, df in competitor_data.items():
+                cleaned_df = self.data_processor.clean_seo_data(df) # Ensure data is clean
+                if 'date' in cleaned_df.columns and 'Traffic (%)' in cleaned_df.columns:
+                    ts_traffic = cleaned_df.set_index('date')['Traffic (%)'].dropna().sort_index()
+                    if len(ts_traffic) >= 10: # Min data points for trend
+                        trend_model = self.time_series_analyzer.fit_trend_model(ts_traffic, 'linear')
+                        overall_traffic_trends[comp] = trend_model.get('slope', 0.0) if trend_model else 0.0
+                
+                if 'Position' in cleaned_df.columns and not cleaned_df['Position'].empty:
+                    # Use the _calculate_position_volatility method
+                    position_volatility = self._calculate_position_volatility(cleaned_df['Position'].dropna())
+                    position_volatility_comparison[comp] = position_volatility
+
+            market_dynamics = {}
+            if overall_traffic_trends:
+                market_dynamics['fastest_growing_competitor_by_traffic_trend'] = max(overall_traffic_trends, key=overall_traffic_trends.get)
+                market_dynamics['declining_competitors_by_traffic_trend'] = [c for c, t in overall_traffic_trends.items() if t < 0]
+            if position_volatility_comparison:
+                 market_dynamics['most_volatile_competitor_by_position'] = max(position_volatility_comparison, key=position_volatility_comparison.get)
+                 market_dynamics['most_stable_competitor_by_position'] = min(position_volatility_comparison, key=position_volatility_comparison.get)
+            
+            return {
+                'trend_comparison_metrics': {
+                    'traffic_trend_slopes': overall_traffic_trends,
+                    'position_volatility_scores': position_volatility_comparison
+                },
+                'competitor_movements_summary': "Dynamic shifts observed; monitor key players closely.",
+                'market_dynamics_overview': market_dynamics,
+                'cross_analysis_timestamp': datetime.now().isoformat()
+            }
+        except Exception as e:
+            self.logger.error(f"Error in cross-competitor trend analysis: {str(e)}")
+            return {
+                'trend_comparison_metrics': {},
+                'competitor_movements_summary': "Error during cross-competitor trend analysis.",
+                'market_dynamics_overview': {},
+                'error': f"Analysis failed: {str(e)}"
+            }
+
+    def _calculate_position_volatility(self, series: pd.Series) -> float:
+        """Calculate position volatility (e.g., standard deviation or custom metric)."""
+        try:
+            if series.empty or len(series) < 2:
+                return 0.0
+            volatility = self.stats_calculator.calculate_descriptive_statistics(series).get('std_dev', 0.0)
+            return float(volatility) if volatility is not None else 0.0
+        except Exception as e:
+            self.logger.error(f"Error calculating position volatility: {str(e)}")
+            return 0.0
+
+    def _identify_content_gaps(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame]
+    ) -> List[Dict[str, Any]]:
+        """Identify content gaps based on keyword analysis and competitor content."""
+        try:
+            self.logger.info("Identifying content gaps.")
+            lenovo_keywords = set(lenovo_data['Keyword'].str.lower())
+            content_gaps_found = []
+            
+            for comp_name, comp_df in competitor_data.items():
+                comp_keywords = set(comp_df['Keyword'].str.lower())
+                unique_to_comp = list(comp_keywords - lenovo_keywords)[:3] 
+                if unique_to_comp:
+                    content_gaps_found.append({
+                        "theme": f"Potential theme from {comp_name} based on keywords like '{unique_to_comp[0]}'",
+                        "missing_keywords_sample": unique_to_comp,
+                        "competitor_source": comp_name,
+                        "estimated_opportunity_level": "medium"
+                    })
+            return content_gaps_found[:5] # Limit total gaps for example
+        except Exception as e:
+            self.logger.error(f"Error identifying content gaps: {str(e)}")
+            return []
+
     # Helper methods using utility framework
     def _calculate_competitive_strength(
         self,
@@ -773,6 +958,115 @@ class CompetitiveAnalyzer:
         except Exception:
             return None
 
+    def _identify_competitive_disadvantages(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame],
+        keyword_gaps: pd.DataFrame
+    ) -> List[str]:
+        """Identify competitive disadvantages for Lenovo."""
+        try:
+            self.logger.info("Identifying competitive disadvantages.")
+            disadvantages = []
+            if not keyword_gaps.empty and 'opportunity_score' in keyword_gaps.columns:
+                high_opp_gaps = keyword_gaps[keyword_gaps['opportunity_score'] > 0.75] # Stricter threshold
+                if not high_opp_gaps.empty:
+                    disadvantages.append(f"Missing out on {len(high_opp_gaps)} high-opportunity keywords (score > 0.75).")
+
+            lenovo_avg_pos = lenovo_data['Position'].mean() if 'Position' in lenovo_data and not lenovo_data.empty else 100.0
+            for comp_name, comp_df in competitor_data.items():
+                comp_avg_pos = comp_df['Position'].mean() if 'Position' in comp_df and not comp_df.empty else 0.0
+                if comp_avg_pos > 0 and lenovo_avg_pos > comp_avg_pos + 15: # Significant gap
+                    disadvantages.append(f"Average ranking significantly weaker ({lenovo_avg_pos:.1f}) compared to {comp_name} ({comp_avg_pos:.1f}).")
+            
+            return disadvantages[:3]
+        except Exception as e:
+            self.logger.error(f"Error identifying competitive disadvantages: {str(e)}")
+            return [f"Error in analysis: {str(e)}"]
+
+    def _generate_gap_insights(
+        self,
+        keyword_gaps: pd.DataFrame,
+        content_gaps: List[Dict[str, Any]],
+        competitive_disadvantages: List[str]
+    ) -> List[str]:
+        """Generate actionable insights from gap analysis."""
+        try:
+            self.logger.info("Generating gap insights.")
+            insights = []
+            if not keyword_gaps.empty:
+                top_priority_gaps = keyword_gaps[keyword_gaps['opportunity_score'] > 0.6]
+                if not top_priority_gaps.empty:
+                    insights.append(f"Prioritize targeting {len(top_priority_gaps)} keywords with opportunity score > 0.6 (e.g., '{top_priority_gaps.iloc[0]['keyword'] if len(top_priority_gaps)>0 else ''}').")
+            if content_gaps:
+                insights.append(f"Address {len(content_gaps)} identified content gap themes, such as '{content_gaps[0]['theme'] if content_gaps else ''}'.")
+            if competitive_disadvantages:
+                insights.append(f"Mitigate key competitive disadvantages: {'; '.join(competitive_disadvantages[:2])}.")
+            
+            if not insights:
+                insights.append("Gap analysis complete. No high-priority actionable insights generated from current data thresholds.")
+            return insights
+        except Exception as e:
+            self.logger.error(f"Error generating gap insights: {str(e)}")
+            return [f"Error in generating insights: {str(e)}"]
+
+    def _assess_competitive_threats(
+        self,
+        competitor_metrics: Dict[str, CompetitorMetrics],
+        market_analysis: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Assess competitive threats using business rules and metrics."""
+        try:
+            self.logger.info("Assessing competitive threats.")
+            threats_summary = {}
+            high_strength_competitors = [name for name, m in competitor_metrics.items() if m.competitive_strength > self.competitive_threshold]
+            fast_growing_competitors = [name for name, m in competitor_metrics.items() if m.growth_rate > 0.10] # 10% growth
+            
+            threats_summary['high_strength_competitors'] = high_strength_competitors
+            threats_summary['fast_growing_competitors'] = fast_growing_competitors
+            
+            hhi = market_analysis.get('market_concentration', {}).get('herfindahl_index', 0)
+            threats_summary['market_concentration_risk'] = hhi > 0.25 # HHI > 0.25 indicates high concentration
+            threats_summary['market_concentration_HHI'] = hhi
+
+            overall_level = 'low'
+            if high_strength_competitors or fast_growing_competitors or threats_summary['market_concentration_risk']:
+                overall_level = 'medium'
+            if (len(high_strength_competitors) >=2 and len(fast_growing_competitors)>=1) or hhi > 0.4:
+                overall_level = 'high'
+            threats_summary['overall_threat_level'] = overall_level
+            
+            return threats_summary
+        except Exception as e:
+            self.logger.error(f"Error assessing competitive threats: {str(e)}")
+            return {'error': str(e), 'overall_threat_level': 'unknown'}
+
+    def _calculate_competitive_intensity(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, Any]:
+        """Calculate competitive intensity in the market."""
+        try:
+            self.logger.info("Calculating competitive intensity.")
+            num_competitors = len(competitor_data)
+            # More sophisticated intensity calculation could be added here
+            # For now, a simple score based on number of competitors and their average strength
+            avg_strength = np.mean([m.competitive_strength for m in self._calculate_competitor_metrics(lenovo_data, competitor_data).values()]) if competitor_data else 0
+            
+            intensity_score = (num_competitors / 10.0) * 0.6 + avg_strength * 0.4 # Example formula
+            intensity_score = min(max(intensity_score, 0.0), 1.0) # Normalize to 0-1
+
+            return {
+                'number_of_active_competitors': num_competitors,
+                'average_competitor_strength_metric': float(avg_strength),
+                'calculated_intensity_score': float(intensity_score), # 0 to 1 scale
+                'intensity_level_assessment': 'high' if intensity_score > 0.7 else ('medium' if intensity_score > 0.4 else 'low')
+            }
+        except Exception as e:
+            self.logger.error(f"Error calculating competitive intensity: {str(e)}")
+            return {'error': str(e), 'calculated_intensity_score': 0.0, 'intensity_level_assessment': 'unknown'}
+
     def _calculate_gini_coefficient(self, values: List[float]) -> float:
         """Calculate Gini coefficient for market concentration."""
         try:
@@ -798,6 +1092,58 @@ class CompetitiveAnalyzer:
         except Exception:
             return 0.0
 
+    def _analyze_competitive_gaps(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame]
+    ) -> Dict[str, Any]:
+        """Analyze broader competitive gaps beyond keywords (e.g., feature, content type)."""
+        try:
+            self.logger.info("Analyzing broad competitive gaps.")
+            # This is a high-level conceptual placeholder.
+            # Real implementation would require more structured data or advanced NLP.
+            return {
+                'identified_feature_gaps': ["Competitor A offers 'AI-powered search assistance' (example)."],
+                'content_format_gaps': ["Market shows trend towards interactive tools; Lenovo's presence is limited (example)."],
+                'strategic_focus_gaps': ["Opportunity to target 'sustainable tech' niche more aggressively (example)."],
+                'overall_gap_summary': "Several potential areas for strategic differentiation identified."
+            }
+        except Exception as e:
+            self.logger.error(f"Error analyzing competitive gaps: {str(e)}")
+            return {'error': str(e), 'overall_gap_summary': 'Error during broad gap analysis.'}
+
+    def _calculate_performance_benchmarks(
+        self,
+        lenovo_data: pd.DataFrame,
+        competitor_data: Dict[str, pd.DataFrame],
+        competitor_metrics: Dict[str, CompetitorMetrics]
+    ) -> Dict[str, Any]:
+        """Calculate performance benchmarks against competitors."""
+        try:
+            self.logger.info("Calculating performance benchmarks.")
+            benchmarks = {}
+            
+            lenovo_traffic_sum = lenovo_data.get('Traffic (%)', pd.Series()).sum()
+            lenovo_avg_pos_val = lenovo_data.get('Position', pd.Series()).mean()
+
+            if competitor_metrics:
+                avg_comp_traffic = np.mean([m.organic_traffic for m in competitor_metrics.values() if m.organic_traffic is not None and m.organic_traffic > 0])
+                avg_comp_position = np.mean([m.avg_position for m in competitor_metrics.values() if m.avg_position is not None])
+
+                benchmarks['lenovo_traffic_vs_avg_competitor_traffic'] = safe_divide(lenovo_traffic_sum, avg_comp_traffic) if avg_comp_traffic else "N/A (no competitor traffic data)"
+                benchmarks['lenovo_avg_pos_vs_avg_competitor_position_diff'] = (lenovo_avg_pos_val - avg_comp_position) if lenovo_avg_pos_val is not None and avg_comp_position is not None else "N/A"
+            else:
+                benchmarks['notes'] = "No competitor metrics available for benchmarking."
+
+            benchmarks['lenovo_total_traffic_metric'] = float(lenovo_traffic_sum)
+            benchmarks['lenovo_average_position'] = float(lenovo_avg_pos_val) if lenovo_avg_pos_val is not None else "N/A"
+            benchmarks['benchmark_summary'] = "Lenovo's key SEO metrics benchmarked against market averages."
+            return benchmarks
+        except Exception as e:
+            self.logger.error(f"Error calculating performance benchmarks: {str(e)}")
+            return {'error': str(e), 'benchmark_summary': 'Error during benchmarking.'}
+
+
     def get_performance_summary(self) -> Dict[str, Any]:
         """Get performance summary from tracker."""
         return self.performance_tracker.get_performance_summary()
@@ -809,8 +1155,7 @@ class CompetitiveAnalyzer:
             time_window_hours=hours
         )
 
-    # Additional helper methods would be implemented here...
-    def _identify_keyword_opportunities(self, lenovo_data, competitor_data):
+    def _identify_keyword_opportunities(self, lenovo_data: pd.DataFrame, competitor_data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
         """Identify keyword opportunities using competitor analysis."""
         try:
             opportunities = {'high_opportunity_count': 0, 'opportunities': []}
@@ -822,7 +1167,7 @@ class CompetitiveAnalyzer:
                 comp_keywords = set(comp_df['Keyword'].str.lower().tolist())
                 unique_keywords = comp_keywords - lenovo_keywords
                 
-                for keyword in list(unique_keywords)[:10]:  # Top 10 for performance
+                for keyword in list(unique_keywords)[:20]:  # Sample top 20 unique keywords per competitor
                     keyword_data = comp_df[comp_df['Keyword'].str.lower() == keyword]
                     if not keyword_data.empty:
                         volume = keyword_data.iloc[0].get('Search Volume', 0)
@@ -837,6 +1182,9 @@ class CompetitiveAnalyzer:
                             })
             
             opportunities['high_opportunity_count'] = len(opportunities['opportunities'])
+            # Sort opportunities by volume for prioritization
+            opportunities['opportunities'] = sorted(opportunities['opportunities'], key=lambda x: x['volume'], reverse=True)
             return opportunities
-        except Exception:
-            return {'high_opportunity_count': 0, 'opportunities': []}
+        except Exception as e:
+            self.logger.error(f"Error identifying keyword opportunities: {str(e)}")
+            return {'high_opportunity_count': 0, 'opportunities': [], 'error': str(e)}
