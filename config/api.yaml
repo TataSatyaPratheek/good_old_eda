@@ -1,0 +1,80 @@
+# API Configuration for SEO Competitive Intelligence Platform
+
+api:
+  # SEMrush API Configuration
+  semrush_api_key: "${SEMRUSH_API_KEY}"
+  semrush_base_url: "https://api.semrush.com"
+  
+  # Ahrefs API Configuration  
+  ahrefs_api_key: "${AHREFS_API_KEY}"
+  ahrefs_base_url: "https://apiv2.ahrefs.com"
+  
+  # Google Analytics Configuration
+  google_analytics_credentials: "${GA_CREDENTIALS}"
+  google_analytics_view_id: "${GA_VIEW_ID}"
+  
+  # Google Search Console Configuration
+  google_search_console_credentials: "${GSC_CREDENTIALS}"
+  google_search_console_site_url: "${GSC_SITE_URL}"
+  
+  # Rate limiting configuration
+  rate_limit_requests_per_minute: 60
+  rate_limit_burst: 10
+  
+  # Timeout and retry configuration
+  timeout_seconds: 30
+  retry_attempts: 3
+  retry_backoff_factor: 2
+  
+  # Caching configuration
+  enable_caching: true
+  cache_ttl_seconds: 3600
+  
+  # Request headers
+  user_agent: "SEO-Intelligence-Platform/1.0"
+  accept_encoding: "gzip, deflate"
+  
+  # Authentication
+  auth_type: "api_key"
+  auth_header: "Authorization"
+  
+# API endpoints configuration
+endpoints:
+  semrush:
+    domain_overview: "/reports/v1/analytics/domain-overview"
+    organic_keywords: "/reports/v1/analytics/organic"
+    backlinks: "/reports/v1/analytics/backlinks"
+    keyword_difficulty: "/reports/v1/analytics/keyword-difficulty"
+    
+  ahrefs:
+    domain_rating: "/v1/domain-rating"
+    organic_keywords: "/v1/organic-keywords"
+    backlinks: "/v1/backlinks"
+    keyword_difficulty: "/v1/keyword-difficulty"
+    
+  google_analytics:
+    reporting: "/v4/reports:batchGet"
+    real_time: "/v3/data/realtime"
+    
+  google_search_console:
+    search_analytics: "/webmasters/v3/sites/{siteUrl}/searchAnalytics/query"
+
+# Response format configuration
+response_format:
+  default: "json"
+  supported_formats: ["json", "csv", "xml"]
+  encoding: "utf-8"
+  
+# Error handling
+error_handling:
+  max_retries: 3
+  timeout_on_retry: 60
+  handle_rate_limits: true
+  exponential_backoff: true
+  
+# Monitoring and logging
+monitoring:
+  log_requests: true
+  log_responses: false  # Set to true only in development
+  track_performance: true
+  alert_on_failures: true

@@ -1,0 +1,85 @@
+# Pipeline System Configuration
+# This integrates with our sophisticated pipeline system
+
+pipelines:
+  eda_pipeline:
+    pipeline_name: "eda_pipeline"
+    enabled: true
+    schedule: "0 6 * * *"  # Daily at 6 AM
+    dependencies: []
+    retry_attempts: 3
+    timeout_minutes: 30
+    notification_channels: ["email"]
+    
+  feature_pipeline:
+    pipeline_name: "feature_pipeline"
+    enabled: true
+    schedule: "0 7 * * *"  # Daily at 7 AM
+    dependencies: ["eda_pipeline"]
+    retry_attempts: 3
+    timeout_minutes: 45
+    notification_channels: ["email", "slack"]
+    
+  modeling_pipeline:
+    pipeline_name: "modeling_pipeline"
+    enabled: true
+    schedule: "0 8 * * *"  # Daily at 8 AM
+    dependencies: ["feature_pipeline"]
+    retry_attempts: 2
+    timeout_minutes: 90
+    notification_channels: ["email", "slack"]
+    
+  competitive_pipeline:
+    pipeline_name: "competitive_pipeline"
+    enabled: true
+    schedule: "0 9 * * *"  # Daily at 9 AM
+    dependencies: ["eda_pipeline"]
+    retry_attempts: 3
+    timeout_minutes: 60
+    notification_channels: ["email"]
+    
+  optimization_pipeline:
+    pipeline_name: "optimization_pipeline"
+    enabled: true
+    schedule: "0 10 * * *"  # Daily at 10 AM
+    dependencies: ["modeling_pipeline", "competitive_pipeline"]
+    retry_attempts: 2
+    timeout_minutes: 120
+    notification_channels: ["email", "slack"]
+
+# Data configuration
+data:
+  input_directories: ["data"]
+  output_directory: "reports"
+  file_patterns:
+    positions: "*-organic.Positions-*.xlsx"
+    competitors: "*-organic.Competitors-*.xlsx"
+    gap_keywords: "gap.keywords*.xlsx"
+  date_range_days: 7
+  include_competitors: ["dell", "hp"]
+  data_quality_threshold: 0.7
+
+# Analysis configuration
+analysis:
+  enable_competitive_analysis: true
+  enable_temporal_analysis: true
+  enable_feature_engineering: true
+  enable_anomaly_detection: true
+  confidence_threshold: 0.8
+  statistical_significance: 0.05
+
+# Modeling configuration
+modeling:
+  model_types: ["random_forest", "gradient_boosting", "ensemble"]
+  cross_validation_folds: 5
+  hyperparameter_optimization: true
+  feature_selection: true
+  model_interpretability: true
+
+# Optimization configuration
+optimization:
+  optimization_objectives: ["traffic", "positions"]
+  budget_constraints:
+    total_budget: 10000.0
+  risk_tolerance: 0.3
+  prediction_horizon_days: 30

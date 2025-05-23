@@ -1,0 +1,45 @@
+# Database Configuration (Optional - for future database integration)
+
+development:
+  host: "localhost"
+  port: 5432
+  database: "seo_intelligence_dev"
+  username: "seo_dev"
+  password: "dev_password"
+  pool_size: 5
+  timeout_seconds: 30
+  ssl_enabled: false
+
+staging:
+  host: "${STAGING_DB_HOST}"
+  port: 5432
+  database: "${STAGING_DB_NAME}"
+  username: "${STAGING_DB_USER}"
+  password: "${STAGING_DB_PASSWORD}"
+  pool_size: 10
+  timeout_seconds: 45
+  ssl_enabled: true
+
+production:
+  host: "${PROD_DB_HOST}"
+  port: 5432
+  database: "${PROD_DB_NAME}"
+  username: "${PROD_DB_USER}"
+  password: "${PROD_DB_PASSWORD}"
+  pool_size: 20
+  timeout_seconds: 60
+  ssl_enabled: true
+
+# Connection pool settings
+pool:
+  min_connections: 2
+  max_connections: 20
+  pool_pre_ping: true
+  pool_recycle: 3600
+
+# Query optimization
+query:
+  timeout_seconds: 300
+  enable_query_logging: false
+  slow_query_threshold: 5.0
+  explain_analyze: false
