@@ -689,3 +689,487 @@ class SEOAnalyzer:
                 insights.append(f"{easy_keywords} easy-to-rank keywords identified")
         
         return insights
+
+    def calculate_advanced_competitive_metrics(self, data: Dict[str, pd.DataFrame]) -> Dict[str, Any]:
+        """Calculate advanced competitive metrics based on academic research"""
+        
+        print("📊 Calculating advanced competitive metrics...")
+        
+        lenovo_data = data.get('lenovo', pd.DataFrame())
+        dell_data = data.get('dell', pd.DataFrame())
+        hp_data = data.get('hp', pd.DataFrame())
+        
+        metrics = {}
+        
+        # 1. HHI (Herfindahl-Hirschman Index) for traffic concentration
+        if not lenovo_data.empty and 'Traffic (%)' in lenovo_data.columns:
+            traffic_values = lenovo_data['Traffic (%)'].dropna()
+            if len(traffic_values) > 0:
+                total_traffic = traffic_values.sum()
+                if total_traffic > 0:
+                    shares = traffic_values / total_traffic
+                    hhi = (shares ** 2).sum()
+                    metrics['lenovo_hhi'] = hhi
+                    metrics['traffic_concentration_risk'] = 'High' if hhi > 0.25 else 'Medium' if hhi > 0.15 else 'Low'
+        
+        # 2. Position Velocity Index (PVI) for competitive threat detection
+        position_velocity = {}
+        for company, data_df in [('lenovo', lenovo_data), ('dell', dell_data), ('hp', hp_data)]:
+            if not data_df.empty and 'Position' in data_df.columns and 'source_date' in data_df.columns:
+                # Calculate daily position changes
+                daily_avg = data_df.groupby('source_date')['Position'].mean().sort_index()
+                if len(daily_avg) > 1:
+                    position_changes = daily_avg.diff().dropna()
+                    avg_change = position_changes.mean()
+                    
+                    # Weight by search volume if available
+                    if 'Volume' in data_df.columns:
+                        avg_volume = data_df['Volume'].mean()
+                        pvi = avg_change * np.log(max(avg_volume, 1))
+                    else:
+                        pvi = avg_change
+                    
+                    position_velocity[company] = {
+                        'pvi_score': pvi,
+                        'trend': 'Improving' if pvi < -0.5 else 'Declining' if pvi > 0.5 else 'Stable',
+                        'velocity_magnitude': abs(pvi)
+                    }
+        
+        metrics['position_velocity'] = position_velocity
+        
+        # 3. Market Dominance Score
+        if lenovo_data.empty == False and dell_data.empty == False and hp_data.empty == False:
+            # Calculate relative market positions
+            companies_traffic = {
+                'lenovo': lenovo_data.get('Traffic (%)', pd.Series()).sum(),
+                'dell': dell_data.get('Traffic (%)', pd.Series()).sum(),
+                'hp': hp_data.get('Traffic (%)', pd.Series()).sum()
+            }
+            
+            total_market = sum(companies_traffic.values())
+            if total_market > 0:
+                dominance_scores = {}
+                for company, traffic in companies_traffic.items():
+                    market_share = traffic / total_market
+                    # Dominance score considers both share and concentration
+                    dominance_scores[company] = {
+                        'market_share': market_share,
+                        'dominance_score': market_share * (1 + market_share),  # Squared advantage
+                        'competitive_status': 'Leader' if market_share > 0.4 else 'Strong' if market_share > 0.3 else 'Challenger'
+                    }
+                
+                metrics['market_dominance'] = dominance_scores
+        
+        # 4. Competitive Threat Level Assessment
+        threat_indicators = []
+        
+        # Check for rapid competitor improvements
+        for company, velocity_data in position_velocity.items():
+            if company != 'lenovo' and velocity_data['pvi_score'] < -1.0:  # Significant improvement
+                threat_indicators.append(f"{company.title()} showing rapid ranking improvements")
+        
+        # Check for market share threats
+        if 'market_dominance' in metrics:
+            lenovo_share = metrics['market_dominance']['lenovo']['market_share']
+            for company, dominance in metrics['market_dominance'].items():
+                if company != 'lenovo' and dominance['market_share'] > lenovo_share * 0.8:
+                    threat_indicators.append(f"{company.title()} approaching Lenovo's market share")
+        
+        metrics['threat_assessment'] = {
+            'active_threats': threat_indicators,
+            'threat_level': 'High' if len(threat_indicators) > 2 else 'Medium' if len(threat_indicators) > 0 else 'Low',
+            'monitoring_priority': threat_indicators[:3] if threat_indicators else ['Maintain current monitoring']
+        }
+        
+        # 5. SERP Feature Dominance Score
+        serp_dominance = {}
+        for company, data_df in [('lenovo', lenovo_data), ('dell', dell_data), ('hp', hp_data)]:
+            if not data_df.empty and 'SERP Features by Keyword' in data_df.columns:
+                feature_presence = 0
+                total_keywords = 0
+                
+                for features_str in data_df['SERP Features by Keyword'].dropna():
+                    total_keywords += 1
+                    if features_str and str(features_str) != 'nan':
+                        features = [f.strip() for f in str(features_str).split(',')]
+                        # Weight high-value features more
+                        high_value_features = ['Featured Snippet', 'Video Carousel', 'Shopping Results']
+                        feature_score = len(features) + sum(2 for f in features if any(hvf in f for hvf in high_value_features))
+                        feature_presence += feature_score
+                
+                if total_keywords > 0:
+                    serp_dominance[company] = {
+                        'dominance_score': feature_presence / total_keywords,
+                        'feature_coverage': feature_presence,
+                        'optimization_potential': 'High' if feature_presence / total_keywords < 2 else 'Medium'
+                    }
+        
+        metrics['serp_dominance'] = serp_dominance
+        
+        return metrics
+
+    def generate_predictive_insights(self, data: Dict[str, pd.DataFrame], advanced_metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate predictive insights and forecasts"""
+        
+        print("🔮 Generating predictive insights...")
+        
+        predictions = {}
+        
+        # 1. Traffic Forecast based on current trends
+        lenovo_data = data.get('lenovo', pd.DataFrame())
+        
+        if not lenovo_data.empty and 'source_date' in lenovo_data.columns and 'Traffic (%)' in lenovo_data.columns:
+            # Group by date and calculate daily traffic
+            daily_traffic = lenovo_data.groupby('source_date')['Traffic (%)'].sum().sort_index()
+            
+            if len(daily_traffic) >= 2:
+                # Simple linear trend calculation
+                x = np.arange(len(daily_traffic))
+                y = daily_traffic.values
+                
+                # Linear regression for trend
+                from scipy import stats
+                slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+                
+                # Forecast next 30 days
+                future_days = 30
+                forecast_x = np.arange(len(daily_traffic), len(daily_traffic) + future_days)
+                forecast_traffic = slope * forecast_x + intercept
+                
+                predictions['traffic_forecast'] = {
+                    'current_trend': 'Positive' if slope > 0 else 'Negative' if slope < 0 else 'Stable',
+                    'slope': slope,
+                    'confidence': r_value ** 2,
+                    'forecast_30_days': forecast_traffic[-1],
+                    'forecast_change': ((forecast_traffic[-1] - daily_traffic.iloc[-1]) / daily_traffic.iloc[-1]) * 100 if daily_traffic.iloc[-1] != 0 else 0,
+                    'forecast_reliability': 'High' if r_value ** 2 > 0.7 else 'Medium' if r_value ** 2 > 0.5 else 'Low'
+                }
+        
+        # 2. Competitive Threat Prediction
+        position_velocity = advanced_metrics.get('position_velocity', {})
+        threat_predictions = []
+        
+        for competitor, velocity_data in position_velocity.items():
+            if competitor != 'lenovo':
+                pvi_score = velocity_data.get('pvi_score', 0)
+                
+                # Predict threat level based on velocity
+                if pvi_score < -2.0:  # Rapid improvement
+                    threat_predictions.append({
+                        'competitor': competitor,
+                        'threat_level': 'Critical',
+                        'predicted_impact': 'High',
+                        'timeline': '30-60 days',
+                        'recommendation': f'Immediate competitive response needed against {competitor}'
+                    })
+                elif pvi_score < -1.0:  # Moderate improvement
+                    threat_predictions.append({
+                        'competitor': competitor,
+                        'threat_level': 'Medium',
+                        'predicted_impact': 'Medium',
+                        'timeline': '60-90 days',
+                        'recommendation': f'Monitor {competitor} closely and prepare defensive strategies'
+                    })
+        
+        predictions['competitive_threats'] = threat_predictions
+        
+        # 3. Market Share Trajectory
+        market_dominance = advanced_metrics.get('market_dominance', {})
+        if market_dominance:
+            lenovo_share = market_dominance.get('lenovo', {}).get('market_share', 0)
+            
+            # Calculate trajectory based on threat indicators
+            threat_level = advanced_metrics.get('threat_assessment', {}).get('threat_level', 'Low')
+            
+            if threat_level == 'High':
+                projected_change = -5  # 5% potential loss
+            elif threat_level == 'Medium':
+                projected_change = -2  # 2% potential loss
+            else:
+                projected_change = 2   # 2% potential gain
+            
+            predictions['market_share_trajectory'] = {
+                'current_share': lenovo_share * 100,
+                'projected_3_month_change': projected_change,
+                'projected_share': (lenovo_share * 100) + projected_change,
+                'confidence_level': 'Medium',
+                'key_factors': [
+                    f"Current threat level: {threat_level}",
+                    f"Competitive velocity trends",
+                    f"Market dominance position"
+                ]
+            }
+        
+        # 4. Keyword Opportunity Scoring
+        gap_data = data.get('gap_keywords', pd.DataFrame())
+        if not gap_data.empty and all(col in gap_data.columns for col in ['Volume', 'Keyword Difficulty']):
+            
+            # Score opportunities based on volume/difficulty ratio
+            gap_data_copy = gap_data.copy()
+            gap_data_copy['opportunity_score'] = (gap_data_copy['Volume'] / 1000) / (gap_data_copy['Keyword Difficulty'] / 10 + 1)
+            gap_data_copy['success_probability'] = np.clip(1 - (gap_data_copy['Keyword Difficulty'] / 100), 0.1, 0.9)
+            gap_data_copy['effort_estimate'] = gap_data_copy['Keyword Difficulty'].apply(
+                lambda x: 'Low' if x < 30 else 'Medium' if x < 60 else 'High'
+            )
+            
+            top_opportunities = gap_data_copy.nlargest(15, 'opportunity_score')
+            
+            predictions['keyword_opportunities'] = {
+                'total_scored': len(gap_data_copy),
+                'high_probability_wins': len(gap_data_copy[gap_data_copy['success_probability'] > 0.7]),
+                'top_opportunities': top_opportunities[['Keyword', 'Volume', 'Keyword Difficulty', 'opportunity_score', 'success_probability', 'effort_estimate']].to_dict('records'),
+                'expected_traffic_gain': top_opportunities['Volume'].sum() * 0.05,  # Assume 5% CTR
+                'implementation_priority': 'Immediate' if len(top_opportunities) > 0 else 'None'
+            }
+        
+        # 5. Risk Assessment Matrix
+        risk_factors = []
+        
+        # Traffic concentration risk
+        hhi = advanced_metrics.get('lenovo_hhi', 0)
+        if hhi > 0.25:
+            risk_factors.append({
+                'risk_type': 'Traffic Concentration',
+                'severity': 'High',
+                'description': 'Heavy reliance on few keywords for traffic',
+                'mitigation': 'Diversify keyword portfolio across more terms'
+            })
+        
+        # Competitive pressure risk
+        threat_level = advanced_metrics.get('threat_assessment', {}).get('threat_level', 'Low')
+        if threat_level in ['High', 'Medium']:
+            risk_factors.append({
+                'risk_type': 'Competitive Pressure',
+                'severity': threat_level,
+                'description': 'Competitors gaining market position',
+                'mitigation': 'Accelerate optimization efforts and competitive monitoring'
+            })
+        
+        # SERP feature vulnerability
+        serp_dominance = advanced_metrics.get('serp_dominance', {})
+        lenovo_serp_score = serp_dominance.get('lenovo', {}).get('dominance_score', 0)
+        if lenovo_serp_score < 1.5:  # Low SERP feature presence
+            risk_factors.append({
+                'risk_type': 'SERP Feature Gap',
+                'severity': 'Medium',
+                'description': 'Limited presence in enhanced search features',
+                'mitigation': 'Optimize content for featured snippets and rich results'
+            })
+        
+        predictions['risk_assessment'] = {
+            'identified_risks': risk_factors,
+            'overall_risk_level': 'High' if len([r for r in risk_factors if r['severity'] == 'High']) > 0 else 'Medium' if len(risk_factors) > 1 else 'Low',
+            'priority_mitigations': [r['mitigation'] for r in risk_factors if r['severity'] == 'High'][:3]
+        }
+        
+        return predictions
+
+    def generate_strategic_action_plan(self, results: Dict[str, Any], advanced_metrics: Dict[str, Any], predictions: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate strategic action plan based on comprehensive analysis"""
+        
+        print("📋 Generating strategic action plan...")
+        
+        action_plan = {
+            'immediate_actions': [],      # 0-30 days
+            'short_term_actions': [],     # 1-3 months  
+            'long_term_actions': [],      # 3-12 months
+            'defensive_actions': [],      # Competitive defense
+            'offensive_actions': []       # Market expansion
+        }
+        
+        # === IMMEDIATE ACTIONS (0-30 days) ===
+        
+        # Quick wins from predictions
+        keyword_opportunities = predictions.get('keyword_opportunities', {})
+        top_opportunities = keyword_opportunities.get('top_opportunities', [])
+        
+        high_prob_opportunities = [opp for opp in top_opportunities if opp.get('success_probability', 0) > 0.8 and opp.get('effort_estimate') == 'Low']
+        
+        if high_prob_opportunities:
+            action_plan['immediate_actions'].append({
+                'action': 'Target High-Probability Keywords',
+                'description': f"Optimize for {len(high_prob_opportunities)} high-success-probability, low-effort keywords",
+                'keywords': [opp['Keyword'] for opp in high_prob_opportunities[:5]],
+                'expected_impact': 'Traffic increase 15-25%',
+                'resources_needed': ['Content team', 'SEO specialist'],
+                'timeline': '2-4 weeks'
+            })
+        
+        # Page 2 optimization
+        gap_results = results.get('competitive_gaps', {})
+        quick_wins = gap_results.get('quick_wins', [])
+        page_2_keywords = [qw for qw in quick_wins if qw.get('type') == 'page_2_keywords']
+        
+        if page_2_keywords:
+            action_plan['immediate_actions'].append({
+                'action': 'Page 2 Keywords Optimization',
+                'description': f"Push {len(page_2_keywords)} keywords from page 2 to page 1",
+                'expected_impact': 'Traffic increase 20-30%',
+                'resources_needed': ['Technical SEO', 'Content optimization'],
+                'timeline': '3-4 weeks'
+            })
+        
+        # === DEFENSIVE ACTIONS ===
+        
+        # Competitive threat response
+        competitive_threats = predictions.get('competitive_threats', [])
+        critical_threats = [t for t in competitive_threats if t.get('threat_level') == 'Critical']
+        
+        for threat in critical_threats:
+            action_plan['defensive_actions'].append({
+                'action': f'Counter {threat["competitor"]} Threat',
+                'description': f"Immediate response to {threat['competitor']} rapid improvements",
+                'threat_level': threat['threat_level'],
+                'timeline': threat['timeline'],
+                'recommendation': threat['recommendation'],
+                'resources_needed': ['SEO team', 'Content team', 'Analytics']
+            })
+        
+        # Traffic concentration risk mitigation
+        hhi = advanced_metrics.get('lenovo_hhi', 0)
+        if hhi > 0.25:
+            action_plan['defensive_actions'].append({
+                'action': 'Diversify Traffic Sources',
+                'description': 'Reduce dependency on top-performing keywords',
+                'risk_level': 'High',
+                'expected_impact': 'Reduced traffic volatility risk',
+                'resources_needed': ['Keyword research', 'Content expansion'],
+                'timeline': '6-8 weeks'
+            })
+        
+        # === OFFENSIVE ACTIONS ===
+        
+        # Market share expansion
+        market_dominance = advanced_metrics.get('market_dominance', {})
+        lenovo_status = market_dominance.get('lenovo', {}).get('competitive_status', 'Unknown')
+        
+        if lenovo_status in ['Challenger', 'Strong']:
+            action_plan['offensive_actions'].append({
+                'action': 'Aggressive Market Share Capture',
+                'description': 'Target competitor weaknesses for market share gains',
+                'current_status': lenovo_status,
+                'target_improvement': '5-10% market share increase',
+                'resources_needed': ['Full SEO team', 'Content creation', 'Technical optimization'],
+                'timeline': '3-6 months'
+            })
+        
+        # SERP feature domination
+        serp_dominance = advanced_metrics.get('serp_dominance', {})
+        lenovo_serp_score = serp_dominance.get('lenovo', {}).get('dominance_score', 0)
+        
+        if lenovo_serp_score < 2.0:
+            action_plan['offensive_actions'].append({
+                'action': 'SERP Feature Optimization Campaign',
+                'description': 'Aggressive optimization for featured snippets and rich results',
+                'current_score': lenovo_serp_score,
+                'target_score': 3.0,
+                'expected_impact': 'Increased visibility and CTR',
+                'resources_needed': ['Content strategy', 'Technical SEO', 'Schema markup'],
+                'timeline': '2-4 months'
+            })
+        
+        # === SHORT-TERM ACTIONS (1-3 months) ===
+        
+        # Content gap filling
+        content_gaps = gap_results.get('content_gaps', {}).get('topic_gaps', [])
+        high_opportunity_gaps = [gap for gap in content_gaps if gap.get('opportunity_level') == 'high']
+        
+        if high_opportunity_gaps:
+            action_plan['short_term_actions'].append({
+                'action': 'Strategic Content Gap Filling',
+                'description': f"Create content for {len(high_opportunity_gaps)} high-opportunity topic gaps",
+                'topics': [gap['topic'] for gap in high_opportunity_gaps[:5]],
+                'expected_impact': 'New keyword rankings and traffic',
+                'resources_needed': ['Content team', 'Subject matter experts'],
+                'timeline': '6-12 weeks'
+            })
+        
+        # Technical SEO improvements
+        position_velocity = advanced_metrics.get('position_velocity', {})
+        lenovo_velocity = position_velocity.get('lenovo', {})
+        
+        if lenovo_velocity.get('trend') in ['Declining', 'Stable']:
+            action_plan['short_term_actions'].append({
+                'action': 'Technical SEO Audit & Optimization',
+                'description': 'Comprehensive technical improvements to boost ranking velocity',
+                'current_trend': lenovo_velocity.get('trend', 'Unknown'),
+                'expected_impact': 'Improved ranking momentum',
+                'resources_needed': ['Technical SEO specialist', 'Development team'],
+                'timeline': '8-10 weeks'
+            })
+        
+        # === LONG-TERM ACTIONS (3-12 months) ===
+        
+        # Predictive optimization
+        traffic_forecast = predictions.get('traffic_forecast', {})
+        if traffic_forecast.get('current_trend') in ['Negative', 'Stable']:
+            action_plan['long_term_actions'].append({
+                'action': 'Strategic Portfolio Restructuring',
+                'description': 'Long-term keyword portfolio optimization based on predictive insights',
+                'current_trend': traffic_forecast.get('current_trend'),
+                'expected_impact': 'Sustained traffic growth',
+                'resources_needed': ['Strategic planning', 'Full optimization team'],
+                'timeline': '6-12 months'
+            })
+        
+        # Market leadership positioning
+        if lenovo_status == 'Strong':
+            action_plan['long_term_actions'].append({
+                'action': 'Market Leadership Campaign',
+                'description': 'Comprehensive strategy to achieve market leadership position',
+                'target_status': 'Leader',
+                'expected_impact': 'Market dominance and sustained competitive advantage',
+                'resources_needed': ['Cross-functional teams', 'Significant investment'],
+                'timeline': '9-12 months'
+            })
+        
+        # === ACTION PRIORITIZATION ===
+        
+        # Calculate priority scores
+        all_actions = []
+        for category, actions in action_plan.items():
+            for action in actions:
+                priority_score = 0
+                
+                # Immediate actions get highest priority
+                if category == 'immediate_actions':
+                    priority_score += 10
+                elif category == 'defensive_actions':
+                    priority_score += 8
+                elif category == 'short_term_actions':
+                    priority_score += 6
+                elif category == 'offensive_actions':
+                    priority_score += 7
+                else:  # long_term_actions
+                    priority_score += 4
+                
+                # Boost priority for high-impact actions
+                if 'Traffic increase' in action.get('expected_impact', ''):
+                    priority_score += 3
+                
+                action['priority_score'] = priority_score
+                action['category'] = category
+                all_actions.append(action)
+        
+        # Sort by priority
+        all_actions.sort(key=lambda x: x['priority_score'], reverse=True)
+        
+        action_plan['prioritized_actions'] = all_actions[:10]  # Top 10 priority actions
+        
+        # === RESOURCE ALLOCATION ===
+        
+        resource_summary = {}
+        for action in all_actions:
+            for resource in action.get('resources_needed', []):
+                if resource not in resource_summary:
+                    resource_summary[resource] = 0
+                resource_summary[resource] += 1
+        
+        action_plan['resource_requirements'] = {
+            'most_needed_resources': sorted(resource_summary.items(), key=lambda x: x[1], reverse=True)[:5],
+            'total_actions': len(all_actions),
+            'immediate_priority_actions': len([a for a in all_actions if a.get('category') == 'immediate_actions']),
+            'defensive_priority_actions': len([a for a in all_actions if a.get('category') == 'defensive_actions'])
+        }
+        
+        return action_plan

@@ -562,3 +562,248 @@ class ReportGenerator:
             return str(report_path.with_suffix('.txt'))
         
         return str(report_path)
+
+    def create_advanced_visualizations(self, results: Dict[str, Any], advanced_metrics: Dict[str, Any], predictions: Dict[str, Any]) -> Dict[str, str]:
+        """Create advanced visualizations based on predictive insights"""
+        
+        print("📊 Creating advanced visualizations...")
+        
+        viz_dir = self.reports_dir / "visuals" / "advanced"
+        viz_dir.mkdir(exist_ok=True, parents=True)
+        
+        charts = {}
+        
+        try:
+            # 1. Competitive Threat Radar Chart
+            charts['threat_radar'] = self._create_threat_radar_chart(advanced_metrics, viz_dir)
+            
+            # 2. Traffic Forecast Chart
+            if 'traffic_forecast' in predictions:
+                charts['traffic_forecast'] = self._create_traffic_forecast_chart(predictions['traffic_forecast'], viz_dir)
+            
+            # 3. Market Dominance Bubble Chart
+            if 'market_dominance' in advanced_metrics:
+                charts['market_dominance'] = self._create_market_dominance_chart(advanced_metrics['market_dominance'], viz_dir)
+            
+            # 4. Opportunity Scoring Matrix
+            if 'keyword_opportunities' in predictions:
+                charts['opportunity_matrix'] = self._create_opportunity_matrix_chart(predictions['keyword_opportunities'], viz_dir)
+            
+            # 5. Risk Assessment Dashboard
+            if 'risk_assessment' in predictions:
+                charts['risk_dashboard'] = self._create_risk_dashboard_chart(predictions['risk_assessment'], viz_dir)
+            
+            print(f"📊 Generated {len(charts)} advanced visualizations")
+            
+        except Exception as e:
+            print(f"⚠️ Error generating advanced visualizations: {e}")
+        
+        return charts
+
+    def _create_threat_radar_chart(self, advanced_metrics: Dict[str, Any], viz_dir: Path) -> str:
+        """Create competitive threat radar chart"""
+        
+        try:
+            import matplotlib.pyplot as plt
+            import numpy as np
+            
+            fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(projection='polar'))
+            
+            # Threat dimensions
+            categories = ['Market Share', 'Position Velocity', 'SERP Dominance', 'Traffic Growth', 'Keyword Coverage']
+            
+            # Get data for each competitor
+            competitors = ['Lenovo', 'Dell', 'HP']
+            colors = ['#2E86C1', '#E74C3C', '#F39C12']
+            
+            # Normalize scores to 0-10 scale
+            def normalize_score(value, max_val=1.0):
+                return min(10, (value / max_val) * 10) if value else 0
+            
+            # Calculate scores for each competitor
+            competitor_scores = {}
+            
+            market_dominance = advanced_metrics.get('market_dominance', {})
+            position_velocity = advanced_metrics.get('position_velocity', {})
+            serp_dominance = advanced_metrics.get('serp_dominance', {})
+            
+            for comp in ['lenovo', 'dell', 'hp']:
+                scores = [
+                    normalize_score(market_dominance.get(comp, {}).get('market_share', 0), 0.5),
+                    normalize_score(abs(position_velocity.get(comp, {}).get('pvi_score', 0)), 3.0),
+                    normalize_score(serp_dominance.get(comp, {}).get('dominance_score', 0), 3.0),
+                    normalize_score(0.5, 1.0),  # Traffic growth placeholder
+                    normalize_score(0.6, 1.0)   # Keyword coverage placeholder
+                ]
+                competitor_scores[comp] = scores
+            
+            # Number of variables
+            N = len(categories)
+            
+            # Angle for each axis
+            angles = [n / float(N) * 2 * np.pi for n in range(N)]
+            angles += angles[:1]  # Complete the circle
+            
+            # Plot each competitor
+            for i, (comp, color) in enumerate(zip(['lenovo', 'dell', 'hp'], colors)):
+                values = competitor_scores.get(comp, [0] * N)
+                values += values[:1]  # Complete the circle
+                
+                ax.plot(angles, values, 'o-', linewidth=2, label=comp.title(), color=color)
+                ax.fill(angles, values, alpha=0.25, color=color)
+            
+            # Add category labels
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(categories)
+            ax.set_ylim(0, 10)
+            
+            # Add grid
+            ax.grid(True)
+            
+            # Add legend and title
+            plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0))
+            plt.title('Competitive Threat Analysis Radar', size=16, fontweight='bold', pad=20)
+            
+            chart_path = viz_dir / "competitive_threat_radar.png"
+            plt.savefig(chart_path, dpi=300, bbox_inches='tight', facecolor='white')
+            plt.close()
+            
+            return str(chart_path)
+            
+        except Exception as e:
+            print(f"Error creating threat radar chart: {e}")
+            return ""
+
+    def _create_traffic_forecast_chart(self, traffic_forecast: Dict[str, Any], viz_dir: Path) -> str:
+        """Create traffic forecast visualization"""
+        
+        try:
+            plt.figure(figsize=(12, 8))
+            
+            # Historical trend (simulated data points)
+            days = np.arange(-7, 31)  # 7 days historical, 30 days forecast
+            historical_days = days[days <= 0]
+            forecast_days = days[days > 0]
+            
+            # Simulate historical data based on trend
+            slope = traffic_forecast.get('slope', 0)
+            base_traffic = 100  # Baseline traffic
+            
+            historical_traffic = base_traffic + slope * historical_days
+            forecast_traffic = base_traffic + slope * forecast_days
+            
+            # Plot historical data
+            plt.plot(historical_days, historical_traffic, 'o-', color='#2E86C1', linewidth=2, label='Historical Data')
+            
+            # Plot forecast
+            plt.plot(forecast_days, forecast_traffic, '--', color='#E74C3C', linewidth=2, label='Forecast')
+            
+            # Add confidence interval
+            confidence = traffic_forecast.get('confidence', 0.5)
+            forecast_std = np.std(forecast_traffic) * (1 - confidence)
+            
+            plt.fill_between(forecast_days, 
+                            forecast_traffic - forecast_std, 
+                            forecast_traffic + forecast_std, 
+                            alpha=0.3, color='#E74C3C', label=f'Confidence Interval ({confidence:.1%})')
+            
+            # Formatting
+            plt.axvline(x=0, color='gray', linestyle=':', alpha=0.7, label='Today')
+            plt.xlabel('Days from Today', fontsize=12, fontweight='bold')
+            plt.ylabel('Traffic Share (%)', fontsize=12, fontweight='bold')
+            plt.title('Traffic Forecast - 30 Day Projection', fontsize=16, fontweight='bold', pad=20)
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            
+            # Add forecast summary text
+            forecast_change = traffic_forecast.get('forecast_change', 0)
+            reliability = traffic_forecast.get('forecast_reliability', 'Medium')
+            
+            plt.text(0.02, 0.98, f'Forecast Change: {forecast_change:+.1f}%\nReliability: {reliability}', 
+                    transform=plt.gca().transAxes, verticalalignment='top',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightblue", alpha=0.7))
+            
+            plt.tight_layout()
+            
+            chart_path = viz_dir / "traffic_forecast.png"
+            plt.savefig(chart_path, dpi=300, bbox_inches='tight', facecolor='white')
+            plt.close()
+            
+            return str(chart_path)
+            
+        except Exception as e:
+            print(f"Error creating traffic forecast chart: {e}")
+            return ""
+
+    def _create_opportunity_matrix_chart(self, opportunities: Dict[str, Any], viz_dir: Path) -> str:
+        """Create opportunity scoring matrix"""
+        
+        try:
+            top_opportunities = opportunities.get('top_opportunities', [])
+            
+            if not top_opportunities:
+                return ""
+            
+            plt.figure(figsize=(14, 10))
+            
+            # Extract data
+            volumes = [opp.get('Volume', 0) for opp in top_opportunities]
+            difficulties = [opp.get('Keyword Difficulty', 0) for opp in top_opportunities]
+            opportunity_scores = [opp.get('opportunity_score', 0) for opp in top_opportunities]
+            success_probs = [opp.get('success_probability', 0) for opp in top_opportunities]
+            
+            # Create scatter plot with size based on opportunity score
+            scatter = plt.scatter(difficulties, volumes, 
+                                s=[score * 100 for score in opportunity_scores], 
+                                c=success_probs, 
+                                cmap='RdYlGn', 
+                                alpha=0.7,
+                                edgecolors='black',
+                                linewidth=0.5)
+            
+            # Add colorbar
+            cbar = plt.colorbar(scatter)
+            cbar.set_label('Success Probability', fontsize=12, fontweight='bold')
+            
+            # Add quadrant lines
+            plt.axvline(x=50, color='red', linestyle='--', alpha=0.5)
+            plt.axhline(y=np.median(volumes), color='red', linestyle='--', alpha=0.5)
+            
+            # Add quadrant labels
+            max_vol = max(volumes) if volumes else 1000
+            plt.text(25, max_vol * 0.9, 'High Volume\nLow Difficulty\n(Sweet Spot)', 
+                    ha='center', va='center', fontsize=10, fontweight='bold',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgreen", alpha=0.7))
+            
+            plt.text(75, max_vol * 0.9, 'High Volume\nHigh Difficulty\n(Long-term)', 
+                    ha='center', va='center', fontsize=10, fontweight='bold',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow", alpha=0.7))
+            
+            # Formatting
+            plt.xlabel('Keyword Difficulty', fontsize=12, fontweight='bold')
+            plt.ylabel('Search Volume', fontsize=12, fontweight='bold')
+            plt.title('SEO Opportunity Matrix\n(Size = Opportunity Score, Color = Success Probability)', 
+                    fontsize=16, fontweight='bold', pad=20)
+            plt.grid(True, alpha=0.3)
+            
+            # Add legend for bubble sizes
+            sizes = [min(opportunity_scores), np.median(opportunity_scores), max(opportunity_scores)]
+            size_labels = ['Low', 'Medium', 'High']
+            
+            for size, label in zip(sizes, size_labels):
+                plt.scatter([], [], s=size*100, c='gray', alpha=0.6, 
+                        edgecolors='black', linewidth=0.5, label=f'{label} Opportunity')
+            
+            plt.legend(title='Opportunity Score', loc='upper left')
+            
+            plt.tight_layout()
+            
+            chart_path = viz_dir / "opportunity_matrix.png"
+            plt.savefig(chart_path, dpi=300, bbox_inches='tight', facecolor='white')
+            plt.close()
+            
+            return str(chart_path)
+            
+        except Exception as e:
+            print(f"Error creating opportunity matrix chart: {e}")
+            return ""
