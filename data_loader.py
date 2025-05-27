@@ -25,7 +25,7 @@ class SEODataLoader:
         }
         
         # Fixed date folders
-        date_folders = ["May-19-2025", "May-20-2025", "May-21-2025"]
+        date_folders = ["May-17-2025", "May-18-2025","May-19-2025", "May-20-2025", "May-21-2025", "May-22-2025"]
         
         print("📁 Loading SEO data...")
         
